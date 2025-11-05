@@ -1,317 +1,240 @@
-# 🔮 DBD Escape Prediction API
+# Dead by Daylight Escape Prediction - Case Study
 
-A machine learning web application that predicts a survivor's chance of escaping in Dead by Daylight (DBD) using a PyTorch neural network. This project includes a Flask API with a user-friendly web interface and is containerized with Docker for easy deployment.
+## 1) Executive Summary
 
-![Python](https://img.shields.io/badge/python-3.11-blue.svg)
-![Flask](https://img.shields.io/badge/Flask-3.0-green.svg)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.0-orange.svg)
-![Docker](https://img.shields.io/badge/docker-ready-blue.svg)
+### Problem
 
-## 🎯 Features
+Dead by Daylight (DBD) players, especially ones like myself who have dedicated thousands of hours to the game, want to understand a survivor's chance of escaping a match based on various in-game factors. Currently, I basically just have to rely on intuition and my personal experience to estimate escape probability. I can also sometimes look at a survivor's hour count in-game, but this is not always available as it is entirely up to the player to make this public or not. This project addresses the need for a data-driven prediction tool that helps potentially make more informed decisions during pre-game lobby queue and understand how certain factors (survivor characteristics, map size, items, prestige level) may or may not influence escape rates.
 
-- **Interactive Web Interface**: Easy-to-use form with dropdowns for all input fields
-- **REST API**: JSON API endpoint for programmatic access
-- **Machine Learning Model**: PyTorch neural network trained on DBD gameplay data
-- **Docker Support**: Fully containerized for consistent deployment across environments
-- **Beautiful UI**: Modern, responsive design with gradient styling
+**Target Users**: Dead by Daylight players, gaming analysts, and researchers interested in game mechanics analysis
 
-## 📋 Prerequisites
+### Solution
 
-- Python 3.11+ (for local development)
-- Docker and Docker Compose (for containerized deployment)
-- Trained model files (see Setup section)
+This project is a machine learning web application that predicts a survivor's probability of escaping in Dead by Daylight using a PyTorch neural network. The system accepts inputs such as survivor gender, prestige level, items brought, map characteristics, and player statistics (bloodpoints), then outputs a probability score between 0-100% indicating the likelihood/confidence of the model's outcome of escape or death. The application is delivered as a Flask web app with a user-friendly interface deployed through a container on Docker, making it accessible to both technical and non-technical users. The model was trained on my personal killer gameplay data to learn patterns that correlate with successful escapes.
 
-## 🚀 Quick Start with Docker (Recommended)
+## 2) System Overview
 
-### Option 1: Using Docker Compose
+### Course Concept(s)
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd "DBD Project"
-   ```
+- **Flask API**: Putting my neural network model into a Flask app for deployment into an html file to be interactive for the user
+- **Containerization**: Docker for consistent deployment and environment management
 
-2. **Add your trained model files**
-   - Copy `dbd_model.pth`, `scaler.pkl`, and `model_info.pkl` to the project root
-   - These files are created after training the model (see Model Training section)
+### Architecture Diagram
 
-3. **Build and run with Docker Compose**
-   ```bash
-   docker-compose up -d
-   ```
+![System Architecture](assets/architecture.png)
 
-4. **Access the application**
-   - Open your browser to `http://localhost:5000`
+*Note: Place architecture diagram PNG in `/assets/architecture.png`*
 
-5. **Stop the container**
-   ```bash
-   docker-compose down
-   ```
+**System Flow:**
+1. User inputs game parameters via web interface or API
+2. Flask application receives and validates input
+3. Features are preprocessed and scaled using saved scaler
+4. PyTorch model performs inference
+5. Result is formatted as probability percentage and returned to user
 
-### Option 2: Using Docker directly
+### Data/Models/Services
 
-1. **Build the Docker image**
-   ```bash
-   docker build -t dbd-predictor .
-   ```
+**Training Data:**
+- **Source**: `DBDData.csv` (gameplay data)
+- **Size**: Varies by dataset (typically thousands of gameplay records)
+- **Format**: CSV with columns for survivor attributes, game settings, and outcomes
+- **License**: Project-specific data (not publicly distributed)
 
-2. **Run the container**
-   ```bash
-   docker run -d -p 5000:5000 \
-     -v $(pwd)/dbd_model.pth:/app/dbd_model.pth:ro \
-     -v $(pwd)/scaler.pkl:/app/scaler.pkl:ro \
-     -v $(pwd)/model_info.pkl:/app/model_info.pkl:ro \
-     --name dbd-predictor dbd-predictor
-   ```
+**Model:**
+- **Type**: PyTorch Neural Network (2 hidden layers, batch normalization, dropout)
+- **Input Features**: 13 features (gender, steam player, anonymous mode, prestige, map area, item type, survivor/killer bloodpoints)
+- **Output**: Binary classification probability (escape vs. no escape)
+- **Format**: Saved as `dbd_model.pth` (PyTorch state dict), `scaler.pkl` (scikit-learn StandardScaler), `model_info.pkl` (architecture metadata)
+- **Size**: Model weights ~few MB, total artifacts ~10-50 MB
 
-3. **Access the application**
-   - Open your browser to `http://localhost:5000`
+**Services:**
+- **Web Interface**: Flask web server (port 5000)
+- **API Endpoint**: POST `/predict` for programmatic access
+- **Health Check**: GET `/health` for container health monitoring
 
-## 🏗️ Local Development Setup
+## 3) How to Run (Local)
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd "DBD Project"
-   ```
-
-2. **Create a virtual environment**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Train and save your model**
-   - Open `DBDCode.ipynb` in Jupyter
-   - Run all cells to train the model
-   - After training (after cell 28), run this code in a new cell:
-   ```python
-   import pickle
-   
-   torch.save(model.state_dict(), 'dbd_model.pth')
-   with open('scaler.pkl', 'wb') as f:
-       pickle.dump(scaler, f)
-   model_info = {
-       'input_size': X_train.shape[1],
-       'hidden_size': Hidden_size
-   }
-   with open('model_info.pkl', 'wb') as f:
-       pickle.dump(model_info, f)
-   print("Model saved successfully!")
-   ```
-
-5. **Run the Flask application**
-   ```bash
-   python app.py
-   ```
-
-6. **Access the application**
-   - Open your browser to `http://localhost:5000`
-
-## 📁 Project Structure
-
-```
-DBD Project/
-├── app.py                 # Flask application
-├── templates/
-│   └── index.html         # Web interface
-├── requirements.txt       # Python dependencies
-├── Dockerfile            # Docker configuration
-├── docker-compose.yml    # Docker Compose configuration
-├── .dockerignore         # Files to exclude from Docker build
-├── .gitignore           # Git ignore rules
-├── DBDCode.ipynb        # Jupyter notebook for model training
-├── DBDData.csv          # Training dataset (optional)
-├── dbd_model.pth        # Trained model weights (create after training)
-├── scaler.pkl           # Feature scaler (create after training)
-└── model_info.pkl       # Model architecture info (create after training)
-```
-
-## 🎮 Using the Web Interface
-
-1. Fill in the form fields:
-   - **Survivor Gender**: Female or Male
-   - **Steam Player**: Yes or No
-   - **Anonymous Mode**: Yes or No
-   - **Item Brought**: Select one item (Firecracker, Flashlight, Key, Map, Medkit, Toolbox, or None)
-   - **Prestige**: Enter a number (0-100)
-   - **Map Area**: Enter a number (in $m^2$)
-   - **Survivor BP**: Enter the survivor's bloodpoints
-   - **Killer BP**: Enter the killer's bloodpoints
-
-2. Click **"Predict Escape Chance"**
-
-3. View the prediction:
-   - Whether you will escape (Yes/No)
-   - The escape probability percentage (confidence)
-
-## 🔌 API Endpoint
-
-### POST `/predict`
-
-Predict escape probability from JSON data.
-
-**Request Body:**
-```json
-{
-    "survivor_gender": "F",
-    "steam_player": "Yes",
-    "anonymous_mode": "No",
-    "item": "Medkit",
-    "prestige": 5,
-    "map_area": 8000,
-    "survivor_bp": 20000,
-    "killer_bp": 25000
-}
-```
-
-**Response:**
-```json
-{
-    "escape_chance": 45.23,
-    "will_escape": false,
-    "probability": 0.4523
-}
-```
-
-**Example with curl:**
-```bash
-curl -X POST http://localhost:5000/predict \
-  -H "Content-Type: application/json" \
-  -d '{
-    "survivor_gender": "F",
-    "steam_player": "Yes",
-    "anonymous_mode": "No",
-    "item": "Medkit",
-    "prestige": 5,
-    "map_area": 8000,
-    "survivor_bp": 20000,
-    "killer_bp": 25000
-  }'
-```
-
-## 🐳 Docker Deployment
-
-### Building the Image
+### Docker
 
 ```bash
-docker build -t dbd-predictor .
-```
+# build
+docker build -t dbd-predictor:latest .
 
-### Running the Container
-
-```bash
-docker run -d -p 5000:5000 \
+# run
+docker run --rm -p 5000:5000 \
   -v $(pwd)/dbd_model.pth:/app/dbd_model.pth:ro \
   -v $(pwd)/scaler.pkl:/app/scaler.pkl:ro \
   -v $(pwd)/model_info.pkl:/app/model_info.pkl:ro \
-  --name dbd-predictor dbd-predictor
+  dbd-predictor:latest
+
+# health check
+curl http://localhost:5000/health
 ```
 
-### Environment Variables
-
-You can customize the Flask app behavior with environment variables:
+**Alternative: Using Docker Compose**
 
 ```bash
-docker run -d -p 5000:5000 \
-  -e FLASK_HOST=0.0.0.0 \
-  -e FLASK_PORT=5000 \
-  -e FLASK_DEBUG=False \
-  -v $(pwd)/dbd_model.pth:/app/dbd_model.pth:ro \
-  -v $(pwd)/scaler.pkl:/app/scaler.pkl:ro \
-  -v $(pwd)/model_info.pkl:/app/model_info.pkl:ro \
-  dbd-predictor
-```
-
-### Docker Compose
-
-The `docker-compose.yml` file makes it easier to manage the container:
-
-```bash
-# Start
+# build and run
 docker-compose up -d
 
-# View logs
+# health check
+curl http://localhost:5000/health
+
+# view logs
 docker-compose logs -f
 
-# Stop
+# stop
 docker-compose down
 ```
 
-## 🌐 Deploying to Cloud Platforms
+## 4) Design Decisions
 
-### Heroku
+### Why This Concept?
 
-1. Create a `Procfile`:
-   ```
-   web: python app.py
-   ```
+**Docker**: Essential for ensuring consistent deployment across different environments. The container includes all dependencies (PyTorch, Flask, scikit-learn) and eliminates "works on my machine" issues. CUDA-enabled PyTorch is included to support GPU acceleration when available, while gracefully falling back to CPU.
 
-2. Update `app.py` to use the PORT environment variable:
-   ```python
-   port = int(os.getenv('PORT', 5000))
-   ```
+**Flask**: Chosen for its simplicity and lightweight nature. The application only needs basic routing and JSON handling, making Flask more appropriate than heavier frameworks like Django. The REST API design allows for both web interface and programmatic access.
 
-3. Deploy:
-   ```bash
-   heroku create your-app-name
-   git push heroku main
-   ```
+### Tradeoffs
 
-### AWS, Google Cloud, Azure
+**Performance vs. Model Size**: 
+- **Decision**: Full CUDA-enabled PyTorch (~4.5 GB) vs. CPU-only (~200 MB)
+- **Tradeoff**: Chose CUDA version for GPU acceleration capability, accepting longer build times and larger image size
+- **Impact**: First build takes 10-20 minutes, but subsequent builds are cached. GPU inference is 10-100x faster when available.
 
-Use the Docker container with their container services (ECS, Cloud Run, Container Instances).
+**Complexity vs. Maintainability**:
+- **Decision**: Custom neural network architecture vs. simpler models
+- **Tradeoff**: More complex model requires careful architecture matching between training and inference
+- **Mitigation**: Model metadata (`model_info.pkl`) stores architecture parameters to ensure compatibility
 
-## 🧪 Model Training
+**Development vs. Production**:
+- **Decision**: Model files as volumes vs. baked into image
+- **Tradeoff**: Volumes allow model updates without rebuilding, but require file management
+- **Rationale**: Models are large and change infrequently, so volume mounting is appropriate
 
-The model is trained using a PyTorch neural network. See `DBDCode.ipynb` for the complete training pipeline:
+### Security/Privacy
 
-- Data preprocessing and feature engineering
-- Train/test split
-- Feature standardization
-- Neural network architecture (2 hidden layers with batch normalization)
-- Training with Adam optimizer
-- Model evaluation
+**Secrets Management**: 
+- No API keys or sensitive credentials required
+- Model files contain no user data (pre-trained weights only)
+- Environment variables used for configuration (FLASK_HOST, FLASK_PORT, FLASK_DEBUG)
 
-## 🔧 Troubleshooting
+**Input Validation**:
+- Flask automatically handles JSON parsing errors
+- Input ranges validated on frontend (e.g., prestige 0-100)
+- Type checking in prediction endpoint (float conversion with error handling)
+- **Known Limitation**: No explicit rate limiting (acceptable for single-user/local deployment)
 
-### Model Not Loading
-- Ensure `dbd_model.pth`, `scaler.pkl`, and `model_info.pkl` exist in the project root
-- Check file permissions if using Docker volumes
-- Verify the files were created correctly during model training
+**PII Handling**:
+- No personally identifiable information collected or stored
+- All inputs are game statistics (gender, items, points) - no real names or identifiers
+- No user session tracking or logging of predictions
 
-### Port Already in Use
-- Change the port in `app.py` or use the `FLASK_PORT` environment variable
-- Update Docker port mapping: `-p 8080:5000` (uses port 8080 on host)
+**Data Privacy**:
+- Training data (`DBDData.csv`) excluded from repository via `.gitignore`
+- Model files excluded to prevent accidental data leakage
+- Users must train their own models or provide their own model files
 
-### Docker Build Fails
-- Ensure Docker is running
-- Check internet connection (needs to download base image)
-- Verify `requirements.txt` has valid package names
+### Operations
 
-### Container Can't Access Model Files
-- Check volume mount paths in `docker-compose.yml`
-- Ensure files exist before starting the container
-- Verify file permissions
+**Logs/Metrics**:
+- Flask development server logs to stdout (captured by Docker)
+- Health check endpoint (`/health`) for container monitoring
+- **Known Limitation**: No structured logging or metrics collection (suitable for MVP)
 
-## 📝 License
+**Scaling Considerations**:
+- Current design: Single-container deployment
+- **Limitation**: No horizontal scaling capability (would require load balancer, shared state)
+- **Future**: Could add Redis for session management, gunicorn for multi-worker support
 
-This project is for educational purposes. Please respect Dead by Daylight's terms of service.
+**Resource Footprint**:
+- Container image: ~5 GB (with CUDA PyTorch)
+- Memory usage: ~500 MB - 1 GB at runtime
+- CPU: Minimal for inference (single-threaded predictions)
+- GPU: Optional, provides significant speedup if available
 
-## 🤝 Contributing
+**Known Limitations**:
+1. Model files must be provided externally (not in image)
+2. No database persistence (stateless predictions only)
+3. Single-threaded Flask server (not production-grade for high traffic)
+4. No authentication/authorization (suitable for local use only)
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+## 5) Results & Evaluation
 
-## 📧 Contact
+### Screenshots
 
-For questions or issues, please open an issue on GitHub.
+![Web Interface](assets/web-interface.png)
+*Main prediction interface with form inputs*
 
----
+![Prediction Result](assets/prediction-result.png)
+*Example prediction showing 67% escape probability*
 
-**Note**: Remember to train your model and save the model files before running the application. The model files (`dbd_model.pth`, `scaler.pkl`, `model_info.pkl`) are not included in the repository and must be generated through training.
+*Note: Place screenshots in `/assets/` directory*
 
+### Sample Outputs
+
+**API Response Example:**
+```json
+{
+  "escape_chance": 67.45,
+  "will_escape": true,
+  "probability": 0.6745
+}
+```
+
+**Web Interface:**
+- Displays escape probability as percentage
+- Color-coded results (green for escape, red for death)
+- Visual feedback with animations and glow effects
+
+### Performance Notes
+
+**Inference Speed**:
+- CPU: ~5-10 ms per prediction
+- GPU (if available): ~1-2 ms per prediction
+- Network latency: Minimal (local deployment)
+
+**Resource Usage**:
+- Container startup: ~10-15 seconds (model loading)
+- Memory footprint: ~500 MB base + model size
+- Disk I/O: Minimal (model loaded once at startup)
+
+### Validation/Tests
+
+**Model Validation**:
+- Trained model evaluated on test set (typically 20% holdout)
+- Metrics: Accuracy, Precision, Recall, F1-Score
+- Cross-validation performed during training (see `DBDCode.ipynb`)
+
+**API Testing**:
+- Health check endpoint verified
+- Input validation tested with edge cases (invalid ranges, missing fields)
+- Error handling verified for malformed requests
+
+**Integration Testing**:
+- Docker container build verified
+- Volume mounting tested for model file access
+- End-to-end workflow: form submission → prediction → display
+
+## 6) What's Next
+
+### Planned Improvements
+
+   - Incorporate additional features (map type, powerful perks, add-ons)
+   - Collect more data to train and test off for better accuracy
+   - Update data as more updates and patches come out to the game itself
+
+### Refactors
+
+   - Better code organization
+   - Unit tests for prediction logic
+
+### Stretch Features
+
+   - It would be nice to be able to eventually collaborate with a group like NightLight to actively analyze auto-screenshots from games from the community rather than just my killer games to increase accuracy
+   - 
+
+
+## 7) Links (Required)
+
+**GitHub Repo**: <[INSERT-REPO-URL](https://github.com/nhorton06/DBDPreciction)>

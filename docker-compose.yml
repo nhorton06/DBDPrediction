@@ -7,18 +7,19 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Mount model files if they exist locally
-      - ./dbd_model.pth:/app/dbd_model.pth:ro
-      - ./scaler.pkl:/app/scaler.pkl:ro
-      - ./model_info.pkl:/app/model_info.pkl:ro
+      # Mount CSV file for training (model will be trained on startup)
+      - ./DBDData.csv:/app/DBDData.csv:ro
+      # Model files will be generated in /app (no need to mount)
     environment:
       - FLASK_ENV=production
       - FLASK_APP=app.py
+      - TRAINING_CSV=/app/DBDData.csv
+      - MODEL_OUTPUT_DIR=/app
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health').read()"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 10s
+      start_period: 120s  # Give time for model training to complete
 
