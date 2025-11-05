@@ -237,4 +237,4 @@ docker-compose down
 
 ## 7) Links (Required)
 
-**GitHub Repo**: <[INSERT-REPO-URL](https://github.com/nhorton06/DBDPreciction)>
+**GitHub Repo**: https://github.com/nhorton06/DBDPrediction
