@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dead by Daylight - Escape Prediction</title>
+    <link href="https://fonts.googleapis.com/css2?family=Creepster&family=Orbitron:wght@400;700;900&family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Roboto', sans-serif;
+            background: #0a0a0a;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(139, 0, 0, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(255, 0, 0, 0.05) 0%, transparent 50%),
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.3) 2px, rgba(0, 0, 0, 0.3) 4px);
+            min-height: 100vh;
+            padding: 20px;
+            color: #e0e0e0;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><circle cx="200" cy="200" r="150" fill="none" stroke="rgba(139,0,0,0.05)" stroke-width="1"/></svg>') repeat;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .logo-container {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .logo {
+            max-width: 350px;
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(0 0 10px rgba(139, 0, 0, 0.8)) drop-shadow(0 0 20px rgba(255, 0, 0, 0.4));
+            animation: logoGlow 2s ease-in-out infinite alternate;
+            transition: transform 0.3s ease;
+        }
+        
+        .logo:hover {
+            transform: scale(1.05);
+        }
+        
+        @keyframes logoGlow {
+            0% { filter: drop-shadow(0 0 10px rgba(139, 0, 0, 0.8)); }
+            100% { filter: drop-shadow(0 0 20px rgba(255, 0, 0, 0.6)) drop-shadow(0 0 30px rgba(139, 0, 0, 0.4)); }
+        }
+        
+        .logo-placeholder {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 3em;
+            font-weight: 900;
+            color: #ff1a1a;
+            text-shadow: 
+                0 0 5px rgba(255, 26, 26, 0.8),
+                0 0 10px rgba(255, 0, 0, 0.5);
+            letter-spacing: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: linear-gradient(145deg, #1a1a1a 0%, #0d0d0d 100%);
+            border: 2px solid #3a0000;
+            border-radius: 10px;
+            box-shadow: 
+                0 0 20px rgba(139, 0, 0, 0.5),
+                inset 0 2px rgba(255, 0, 0, 0.1);
+            padding: 40px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #8b0000, transparent);
+            animation: scanLine 3s linear infinite;
+        }
+        
+        @keyframes scanLine {
+            0% { opacity: 0; }
+            50% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        
+        h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: #ff1a1a;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.2em;
+            font-weight: 900;
+            text-shadow: 
+                0 0 10px rgba(255, 0, 0, 0.8),
+                0 0 20px rgba(139, 0, 0, 0.6),
+                2px 2px 4px rgba(0, 0, 0, 0.8);
+            letter-spacing: 3px;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+            font-style: italic;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .form-group {
+            margin-bottom: 一巴掌px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #ff4444;
+            font-weight: 700;
+            font-size: 1.05em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+        }
+        
+        select, input[type="number"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #3a0000;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: all 0.3s;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            font-family: 'Roboto', sans-serif;
+        }
+        
+        select:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: #8b0000;
+            box-shadow: 
+                0 0 10px rgba(139, 0, 0, 0.5),
+                inset 0 0 10px rgba(139, 0, 0, 0.1);
+            background: #252525;
+        }
+        
+        select option {
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 10px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .logo-placeholder {
+                font-size: 2em;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #8b0000 0%, #600000 100%);
+            color: #fff;
+            border: 2px solid #ff1a1a;
+            border-radius: 5px;
+            font-size: 1.3em;
+            font-weight: 700;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 10px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+            box-shadow: 
+                0 0 20px rgba(139, 0, 0, 0.6),
+                inset 0 -3px 0 rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .submit-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 0 30px rgba(255, 26, 26, 0.8),
+                0 5px 15px rgba(0, 0, 0, 0.5),
+                inset 0 -3px 0 rgba(0, 0, 0, 0.5);
+            border-color: #ff4444;
+        }
+        
+        .submit-btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .submit-btn:active {
+            transform: translateY(0);
+            box-shadow: 
+                0 0 15px rgba(139, 0, 0, 0.6),
+                inset 0 2px 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .result-container {
+            margin-top: 30px;
+            padding: 30px;
+            border-radius: 10px;
+            display: none;
+            animation: fadeIn 0.8s, pulse 2s ease-in-out infinite;
+            border: 2px solid;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .result-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(139, 0, 0, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(255, 26, 26, 0.8); }
+        }
+        
+        .result-success {
+            background: linear-gradient(135deg, #1a4d1a 0%, #0d260d 100%);
+            border-color: #4dff4d;
+            color: #90ee90;
+            box-shadow: 0 0 30px rgba(77, 255, 77, 0.5);
+        }
+        
+        .result-failure {
+            background: linear-gradient(135deg, #4d1a1a 0%, #260d0d 100%);
+            border-color: #ff1a1a;
+            color: #ff6666;
+            box-shadow: 0 0 30px rgba(255, 26, 26, 0.5);
+        }
+        
+        .result-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.8em;
+            font-weight: 900;
+            margin-bottom: 20px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px currentColor;
+        }
+        
+        .result-percentage {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 4em;
+            font-weight: 900;
+            text-align: center;
+            margin: 20px 0;
+            text-shadow: 
+                0 0 20px currentColor,
+                0 0 40px currentColor;
+            animation: numberGlow 1.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes numberGlow {
+            0% { text-shadow: 0 0 20px currentColor, 0 0 40px currentColor; }
+            100% { text-shadow: 0 0 30px currentColor, 0 0 60px currentColor, 0 0 80px currentColor; }
+        }
+        
+        .result-message {
+            text-align: center;
+            font-size: 1.2em;
+            margin-top: 15px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .loading {
+            text-align: center;
+            color: #ff4444;
+            font-size: 1.2em;
+            margin-top: 20px;
+            display: none;
+            font-family: 'Orbitron', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            animation: loadingPulse 1s ease-in-out infinite;
+        }
+        
+        @keyframes loadingPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+        
+        .error {
+            background: linear-gradient(135deg, #4d1a1a 0%, #260d0d 100%);
+            color: #ff6666;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+            border: 2px solid #ff1a1a;
+            box-shadow: 0 0 20px rgba(255, 26, 26, 0.5);
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-container">
+            <!-- Dead by Daylight Logo from assets folder -->
+            <img src="/assets/dbd logo.png" 
+                 alt="Dead by Daylight Logo" 
+                 class="logo" 
+                 id="dbd-logo-main"
+                 onerror="this.style.display='none'; document.getElementById('dbd-logo-fallback').style.display='block';">
+            <!-- Fallback: Official logo from CDN -->
+            <img src="https://logos-world.net/wp-content/uploads/2023/05/Dead-by-Daylight-Logo.png" 
+                 alt="Dead by Daylight Logo" 
+                 class="logo" 
+                 id="dbd-logo-fallback"
+                 style="display: none;"
+                 onerror="this.style.display='none'; document.getElementById('dbd-text-fallback').style.display='block';">
+            <!-- Text fallback if both images fail -->
+            <div class="logo-placeholder" id="dbd-text-fallback" style="display: none;">DEAD BY DAYLIGHT</div>
+        </div>
+        
+        <h1>ESCAPE PROBABILITY CALCULATOR</h1>
+        <p class="subtitle">Your fate awaits... will you survive?</p>
+        
+        <form id="predictionForm">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="survivor_gender">Survivor Gender</label>
+                    <select id="survivor_gender" name="survivor_gender" required>
+                        <option value="">-- Select --</option>
+                        <option value="F">Female</option>
+                        <option value="M">Male</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="steam_player">Steam Player</label>
+                    <select id="steam_player" name="steam_player" required>
+                        <option value="">-- Select --</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="anonymous_mode">Anonymous Mode</label>
+                    <select id="anonymous_mode" name="anonymous_mode" required>
+                        <option value="">-- Select --</option>
+                        <option value="Yes">Yes</option>
+                        <option value="No">No</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="item">Item Brought</label>
+                    <select id="item" name="item" required>
+                        <option value="">-- Select --</option>
+                        <option value="Firecracker">Firecracker</option>
+                        <option value="Flashlight">Flashlight</option>
+                        <option value="Key">Key</option>
+                        <option value="Map">Map</option>
+                        <option value="Medkit">Medkit</option>
+                        <option value="Toolbox">Toolbox</option>
+                        <option value="None">None</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="prestige">Prestige</label>
+                    <input type="number" id="prestige" name="prestige" min="0" max="100" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="map_area">Map Area (m²)</label>
+                    <input type="number" id="map_area" name="map_area" min="0" step="0.01" placeholder="Enter area in square meters" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="survivor_bp">Survivor BP (Bloodpoints)</label>
+                    <input type="number" id="survivor_bp" name="survivor_bp" min="0" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="killer_bp">Killer BP (Bloodpoints)</label>
+                    <input type="number" id="killer_bp" name="killer_bp" min="0" required>
+                </div>
+            </div>
+            
+            <button type="submit" class="submit-btn">CALCULATE YOUR FATE</button>
+        </form>
+        
+        <div class="loading" id="loading">ANALYZING ESCAPE ROUTES...</div>
+        <div class="error" id="error"></div>
+        
+        <div class="result-container" id="result"></div>
+    </div>
+    
+    <script>
+        const form = document.getElementById('predictionForm');
+        const resultDiv = document.getElementById('result');
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+        
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Hide previous results
+            resultDiv.style.display = 'none';
+            errorDiv.style.display = 'none';
+            loadingDiv.style.display = 'block';
+            
+            // Collect form data
+            const formData = {
+                survivor_gender: document.getElementById('survivor_gender').value,
+                steam_player: document.getElementById('steam_player').value,
+                anonymous_mode: document.getElementById('anonymous_mode').value,
+                item: document.getElementById('item').value,
+                prestige: parseFloat(document.getElementById('prestige').value),
+                map_area: parseFloat(document.getElementById('map_area').value),
+                survivor_bp: parseFloat(document.getElementById('survivor_bp').value),
+                killer_bp: parseFloat(document.getElementById('killer_bp').value)
+            };
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                loadingDiv.style.display = 'none';
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Prediction failed');
+                }
+                
+                // Display results
+                const escapeChance = data.escape_chance;
+                const willEscape = data.will_escape;
+                
+                resultDiv.className = `result-container ${willEscape ? 'result-success' : 'result-failure'}`;
+                resultDiv.innerHTML = `
+                    <div class="result-title">${willEscape ? '✓ ESCAPE SUCCESSFUL' : '✗ DEATH INEVITABLE'}</div>
+                    <div class="result-percentage">${escapeChance}%</div>
+                    <div class="result-message">Escape Probability: ${escapeChance}%</div>
+                `;
+                resultDiv.style.display = 'block';
+                
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                errorDiv.textContent = `ERROR: ${error.message}`;
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

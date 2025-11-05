@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  dbd-predictor:
+    build: .
+    container_name: dbd-escape-predictor
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount model files if they exist locally
+      - ./dbd_model.pth:/app/dbd_model.pth:ro
+      - ./scaler.pkl:/app/scaler.pkl:ro
+      - ./model_info.pkl:/app/model_info.pkl:ro
+    environment:
+      - FLASK_ENV=production
+      - FLASK_APP=app.py
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health').read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
