@@ -302,3 +302,5 @@ DBDPrediction/
 ## 7) Links (Required)
 
 **GitHub Repo**: https://github.com/nhorton06/DBDPrediction
+
+**Credits & Attribution**: See [CREDITS.md](CREDITS.md) for attribution of game assets and third-party resources.
