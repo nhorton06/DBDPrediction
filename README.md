@@ -10,7 +10,7 @@ Dead by Daylight (DBD) players, especially ones like myself who have dedicated t
 
 ### Solution
 
-This project is a machine learning web application that predicts a survivor's probability of escaping in Dead by Daylight using a PyTorch neural network. The system accepts inputs such as survivor gender, prestige level, items brought, map characteristics, and player statistics (bloodpoints), then outputs a probability score between 0-100% indicating the likelihood/confidence of the model's outcome of escape or death. The application is delivered as a Flask web app with a user-friendly interface deployed through a container on Docker, making it accessible to both technical and non-technical users. The model was trained on my personal killer gameplay data to learn patterns that correlate with successful escapes.
+This project is a machine learning web application that predicts a survivor's probability of escaping in Dead by Daylight using a PyTorch neural network. The system accepts inputs such as survivor characteristics, prestige level, items and add-ons, map information, perks (exhaustion, chase, and other perks), and player statistics (bloodpoints), then outputs a probability score between 0-100% indicating the likelihood of escape or sacrifice. The application is delivered as a Flask web app with a user-friendly, categorized interface deployed through Docker, making it accessible to both technical and non-technical users. The model automatically trains on startup using the provided CSV data, ensuring it's always up-to-date with the latest gameplay patterns.
 
 ## 2) System Overview
 
@@ -42,8 +42,14 @@ This project is a machine learning web application that predicts a survivor's pr
 
 **Model:**
 - **Type**: PyTorch Neural Network (2 hidden layers, batch normalization, dropout)
-- **Input Features**: 13 features (gender, steam player, anonymous mode, prestige, map area, item type, survivor/killer bloodpoints)
-- **Output**: Binary classification probability (escape vs. no escape)
+- **Input Features**: 31 features including:
+  - Player characteristics (gender, steam player, anonymous mode, prestige)
+  - Items and equipment (item type, powerful add-ons)
+  - Map information (map type, map area)
+  - Perks (exhaustion perks, chase perks count, decisive strike, unbreakable, off the record, adrenaline)
+  - Bloodpoints (survivor BP, killer BP)
+- **Output**: Binary classification probability (escape vs. sacrifice)
+- **Training**: Automatically trains on container startup (15 epochs)
 - **Format**: Saved as `dbd_model.pth` (PyTorch state dict), `scaler.pkl` (scikit-learn StandardScaler), `model_info.pkl` (architecture metadata)
 - **Size**: Model weights ~few MB, total artifacts ~10-50 MB
 
@@ -54,53 +60,53 @@ This project is a machine learning web application that predicts a survivor's pr
 
 ## 3) How to Run (Local)
 
-### Docker
+### Prerequisites
+
+- Docker and Docker Compose installed
+- `DBDData.csv` file in the project root (will be used for training)
+
+### Docker Compose (Recommended)
 
 ```bash
-# build
-docker build -t dbd-predictor:latest .
-
-# run
-docker run --rm -p 5000:5000 \
-  -v $(pwd)/dbd_model.pth:/app/dbd_model.pth:ro \
-  -v $(pwd)/scaler.pkl:/app/scaler.pkl:ro \
-  -v $(pwd)/model_info.pkl:/app/model_info.pkl:ro \
-  dbd-predictor:latest
-
-# health check
-curl http://localhost:5000/health
-```
-
-**Alternative: Using Docker Compose**
-
-```bash
-# build and run
+# Build and start the container
 docker-compose up -d
 
-# health check
-curl http://localhost:5000/health
+# The container will:
+# 1. Automatically train the model on DBDData.csv
+# 2. Start the Flask web server
+# 3. Be accessible at http://localhost:5000
 
-# view logs
+# View logs (including training progress)
 docker-compose logs -f
 
-# stop
+# Health check
+curl http://localhost:5000/health
+
+# Stop the container
 docker-compose down
+
+# Rebuild after code changes
+docker-compose down
+docker-compose build
+docker-compose up -d
 ```
+
+**Note**: The model trains automatically on startup, so the first request may take 1-2 minutes while training completes. Subsequent requests are instant.
 
 ## 4) Design Decisions
 
 ### Why This Concept?
 
-**Docker**: Essential for ensuring consistent deployment across different environments. The container includes all dependencies (PyTorch, Flask, scikit-learn) and eliminates "works on my machine" issues. CUDA-enabled PyTorch is included to support GPU acceleration when available, while gracefully falling back to CPU.
+**Docker**: Essential for ensuring consistent deployment across different environments. The container includes all dependencies (PyTorch, Flask, scikit-learn) and eliminates "works on my machine" issues. The container automatically trains the model on startup, ensuring it's always up-to-date with the latest data.
 
 **Flask**: Chosen for its simplicity and lightweight nature. The application only needs basic routing and JSON handling, making Flask more appropriate than heavier frameworks like Django. The REST API design allows for both web interface and programmatic access.
 
 ### Tradeoffs
 
 **Performance vs. Model Size**: 
-- **Decision**: Full CUDA-enabled PyTorch (~4.5 GB) vs. CPU-only (~200 MB)
-- **Tradeoff**: Chose CUDA version for GPU acceleration capability, accepting longer build times and larger image size
-- **Impact**: First build takes 10-20 minutes, but subsequent builds are cached. GPU inference is 10-100x faster when available.
+- **Decision**: CPU-only PyTorch for smaller image size and faster builds
+- **Tradeoff**: Smaller image size and faster builds, but no GPU acceleration
+- **Impact**: Build times are quick (~30 seconds), and inference is fast enough for web use (~5-10 ms per prediction)
 
 **Complexity vs. Maintainability**:
 - **Decision**: Custom neural network architecture vs. simpler models
@@ -108,9 +114,9 @@ docker-compose down
 - **Mitigation**: Model metadata (`model_info.pkl`) stores architecture parameters to ensure compatibility
 
 **Development vs. Production**:
-- **Decision**: Model files as volumes vs. baked into image
-- **Tradeoff**: Volumes allow model updates without rebuilding, but require file management
-- **Rationale**: Models are large and change infrequently, so volume mounting is appropriate
+- **Decision**: Automatic model training on startup vs. pre-trained models
+- **Tradeoff**: Training on startup ensures fresh models but increases startup time
+- **Rationale**: Automatic training ensures models are always up-to-date with the latest data
 
 ### Security/Privacy
 
@@ -148,16 +154,17 @@ docker-compose down
 - **Future**: Could add Redis for session management, gunicorn for multi-worker support
 
 **Resource Footprint**:
-- Container image: ~5 GB (with CUDA PyTorch)
+- Container image: ~500 MB - 1 GB (Python 3.11 slim base with dependencies)
 - Memory usage: ~500 MB - 1 GB at runtime
 - CPU: Minimal for inference (single-threaded predictions)
-- GPU: Optional, provides significant speedup if available
+- GPU: Not currently used (CPU-only PyTorch)
 
 **Known Limitations**:
-1. Model files must be provided externally (not in image)
+1. Model trains on every container startup (adds ~30-60 seconds to startup time)
 2. No database persistence (stateless predictions only)
 3. Single-threaded Flask server (not production-grade for high traffic)
 4. No authentication/authorization (suitable for local use only)
+5. Training data must be provided via volume mount (`DBDData.csv`)
 
 ## 5) Results & Evaluation
 
@@ -183,8 +190,11 @@ docker-compose down
 ```
 
 **Web Interface:**
+- Categorized form sections (Player Characteristics, Items, Map Information, Perks, Bloodpoints)
+- Icon-enhanced inputs for better visual recognition
 - Displays escape probability as percentage
-- Color-coded results (green for escape, red for death)
+- Color-coded results (green for escape, red for sacrifice)
+- Outcome images (escaped.png / sacrificed.png)
 - Visual feedback with animations and glow effects
 
 ### Performance Notes
@@ -195,16 +205,18 @@ docker-compose down
 - Network latency: Minimal (local deployment)
 
 **Resource Usage**:
-- Container startup: ~10-15 seconds (model loading)
+- Container startup: ~30-60 seconds (includes model training)
+- Training time: ~15-30 seconds (15 epochs)
 - Memory footprint: ~500 MB base + model size
-- Disk I/O: Minimal (model loaded once at startup)
+- Disk I/O: Minimal (model loaded once after training)
 
 ### Validation/Tests
 
 **Model Validation**:
-- Trained model evaluated on test set (typically 20% holdout)
+- Trained model evaluated on test set (20% holdout)
 - Metrics: Accuracy, Precision, Recall, F1-Score
-- Cross-validation performed during training (see `DBDCode.ipynb`)
+- Typical accuracy: ~99% on training data
+- Model training includes gradient clipping and NaN handling for stability
 
 **API Testing**:
 - Health check endpoint verified
@@ -213,26 +225,54 @@ docker-compose down
 
 **Integration Testing**:
 - Docker container build verified
-- Volume mounting tested for model file access
+- Automatic model training on startup verified
 - End-to-end workflow: form submission → prediction → display
+- Unit tests available in `tests/` directory
 
 ## 6) What's Next
 
+### Project Structure
+
+```
+DBDPrediction/
+├── src/                    # Application source code
+│   ├── app.py             # Flask web application
+│   ├── train_model.py     # Model training script
+│   └── save_model.py      # Model saving utility
+├── tests/                  # Unit and smoke tests
+│   ├── test_api.py        # API endpoint tests
+│   └── test_model.py      # Model architecture tests
+├── templates/              # HTML templates
+│   └── index.html         # Main web interface
+├── assets/                 # Images and static assets
+├── DBDData.csv            # Training data (not in repo)
+├── Dockerfile             # Docker image definition
+├── docker-compose.yml     # Docker Compose configuration
+├── requirements.txt       # Python dependencies
+└── start.sh              # Container startup script
+```
+
 ### Planned Improvements
 
-   - Incorporate additional features (map type, powerful perks, add-ons)
-   - Collect more data to train and test off for better accuracy
-   - Update data as more updates and patches come out to the game itself
+   - Collect more data to improve model accuracy
+   - Update data as game patches and updates are released
+   - Add more sophisticated feature engineering
+   - Implement model versioning
 
-### Refactors
+### Recent Updates
 
-   - Better code organization
-   - Unit tests for prediction logic
+   - Added comprehensive perk support (exhaustion, chase, other perks)
+   - Added map type and powerful add-ons features
+   - Organized UI into categorized sections
+   - Enhanced interface with icons for better UX
+   - Simplified outcome display
+   - Reduced training epochs for faster startup
+   - Added unit tests
+   - Improved code organization (src/ folder structure)
 
 ### Stretch Features
 
    - It would be nice to be able to eventually collaborate with a group like NightLight to actively analyze auto-screenshots from games from the community rather than just my killer games to increase accuracy
-   - 
 
 
 ## 7) Links (Required)

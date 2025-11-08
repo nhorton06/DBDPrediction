@@ -85,6 +85,78 @@ def health():
         'model_loaded': model is not None and scaler is not None
     }), 200
 
+def build_feature_vector(data, model_info):
+    """Build feature vector in the same order as training"""
+    features = []
+    
+    # Basic features (always present)
+    is_female = 1 if data.get('survivor_gender', 'M') == 'F' else 0
+    steam_player = 1 if data.get('steam_player', 'No') == 'Yes' else 0
+    anonymous_mode = 1 if data.get('anonymous_mode', 'No') == 'Yes' else 0
+    prestige = float(data.get('prestige', 0))
+    
+    features.extend([is_female, steam_player, anonymous_mode, prestige])
+    
+    # Map Area (if exists in model)
+    if 'Map Area' in model_info.get('feature_names', []):
+        map_area = float(data.get('map_area', 9728.0))
+        features.append(map_area)
+    
+    # Items (one-hot encode)
+    item = data.get('item', 'None')
+    items = ['Firecracker', 'Flashlight', 'Key', 'Map', 'Medkit', 'Toolbox', 'None']
+    for item_name in items:
+        col_name = f'Brought_{item_name}'
+        if col_name in model_info.get('feature_names', []):
+            features.append(1 if item == item_name else 0)
+    
+    # Binary columns - map form field names to model column names
+    binary_mapping = {
+        'powerful_add_ons': 'Powerful Add-ons',
+        'decisive_strike': 'Decisive Strike',
+        'unbreakable': 'Unbreakable',
+        'off_the_record': 'Off the Record',
+        'adrenaline': 'Adrenaline'
+    }
+    for form_key, model_col in binary_mapping.items():
+        if model_col in model_info.get('feature_names', []):
+            val = 1 if data.get(form_key, 'No') == 'Yes' else 0
+            features.append(val)
+    
+    # Chase Perks (numeric)
+    if 'Chase Perks' in model_info.get('feature_names', []):
+        chase_perks = float(data.get('chase_perks', 0))
+        features.append(chase_perks)
+    
+    # Exhaustion Perk (one-hot encode)
+    exhaustion_perk = data.get('exhaustion_perk', 'None')
+    exhaustion_perks = ['None', 'Sprint Burst', 'Dead Hard', 'Lithe', 'Overcome', 
+                       'DHBL', 'Balanced Landing', 'Background Player', 'Head On']
+    for perk in exhaustion_perks:
+        col_name = f'Exhaustion_{perk}'
+        if col_name in model_info.get('feature_names', []):
+            features.append(1 if exhaustion_perk == perk else 0)
+    
+    # Map Type (one-hot encode)
+    map_type = data.get('map_type', 'Outdoor')
+    # Get all possible map types from model info or use common ones
+    map_types = model_info.get('map_types', ['Outdoor', 'Indoor'])
+    for mt in map_types:
+        col_name = f'MapType_{mt}'
+        if col_name in model_info.get('feature_names', []):
+            features.append(1 if map_type == mt else 0)
+    
+    # BP columns
+    if 'Survivor BP' in model_info.get('feature_names', []):
+        survivor_bp = float(data.get('survivor_bp', 0))
+        features.append(survivor_bp)
+    
+    if 'Killer BP' in model_info.get('feature_names', []):
+        killer_bp = float(data.get('killer_bp', 0))
+        features.append(killer_bp)
+    
+    return np.array(features)
+
 @app.route('/predict', methods=['POST'])
 def predict():
     """Handle prediction requests"""
@@ -95,42 +167,25 @@ def predict():
         # Get form data
         data = request.get_json()
         
-        # Map categorical inputs to numeric values
-        is_female = 1 if data.get('survivor_gender') == 'F' else 0
-        steam_player = 1 if data.get('steam_player') == 'Yes' else 0
-        anonymous_mode = 1 if data.get('anonymous_mode') == 'Yes' else 0
+        # Load model info to get feature names
+        try:
+            with open('model_info.pkl', 'rb') as f:
+                model_info = pickle.load(f)
+        except:
+            model_info = {}
         
-        # Get numeric inputs
-        prestige = float(data.get('prestige', 0))
-        map_area = float(data.get('map_area', 0))
-        survivor_bp = float(data.get('survivor_bp', 0))
-        killer_bp = float(data.get('killer_bp', 0))
+        # Build feature vector
+        features = build_feature_vector(data, model_info)
         
-        # Get item (one-hot encode)
-        item = data.get('item', 'None')
-        items = ['Firecracker', 'Flashlight', 'Key', 'Map', 'Medkit', 'Toolbox']
-        item_encoding = {item_name: [1 if item_name == item else 0 for item_name in items] for item_name in items}
-        item_one_hot = item_encoding.get(item, [0, 0, 0, 0, 0, 0])
-        
-        # Build feature vector in correct order
-        features = [
-            is_female,
-            steam_player,
-            anonymous_mode,
-            prestige,
-            map_area,
-            item_one_hot[0],  # Brought_Firecracker
-            item_one_hot[1],  # Brought_Flashlight
-            item_one_hot[2],  # Brought_Key
-            item_one_hot[3],  # Brought_Map
-            item_one_hot[4],  # Brought_Medkit
-            item_one_hot[5],  # Brought_Toolbox
-            survivor_bp,
-            killer_bp
-        ]
+        # Ensure we have the right number of features
+        expected_size = model_info.get('input_size', len(features))
+        if len(features) != expected_size:
+            return jsonify({
+                'error': f'Feature mismatch. Expected {expected_size} features, got {len(features)}. Please retrain the model.'
+            }), 400
         
         # Convert to numpy array and reshape
-        features_array = np.array(features).reshape(1, -1)
+        features_array = features.reshape(1, -1)
         
         # Scale features
         features_scaled = scaler.transform(features_array)
@@ -154,7 +209,8 @@ def predict():
         })
     
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 400
 
 if __name__ == '__main__':
     import os

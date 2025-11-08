@@ -130,18 +130,56 @@
         }
         
         .form-group {
-            margin-bottom: 一巴掌px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
         }
         
         label {
-            display: block;
+            display: flex;
+            align-items: center;
+            gap: 8px;
             margin-bottom: 8px;
+            min-height: 32px;
             color: #ff4444;
             font-weight: 700;
             font-size: 1.05em;
             text-transform: uppercase;
             letter-spacing: 1px;
             text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+        }
+        
+        label .icon {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+            flex-shrink: 0;
+            opacity: 0.9;
+        }
+        
+        label .icon-group {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        label .icon-group .icon {
+            width: 32px;
+            height: 32px;
+        }
+        
+        label .gender-symbol {
+            font-size: 1.4em;
+            font-weight: bold;
+            width: 32px;
+            height: 32px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            line-height: 1;
+            vertical-align: middle;
+            margin-bottom: 2px;
         }
         
         select, input[type="number"] {
@@ -154,6 +192,8 @@
             background: #1a1a1a;
             color: #e0e0e0;
             font-family: 'Roboto', sans-serif;
+            box-sizing: border-box;
+            min-height: 48px;
         }
         
         select:focus, input[type="number"]:focus {
@@ -171,10 +211,33 @@
             padding: 10px;
         }
         
+        .form-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(139, 0, 0, 0.5);
+            border-radius: 5px;
+        }
+        
+        .form-section-title {
+            font-family: 'Orbitron', sans-serif;
+            color: #ff1a1a;
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(139, 0, 0, 0.6);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255, 26, 26, 0.6);
+        }
+        
         .form-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
+            align-items: start;
+            margin-bottom: 10px;
         }
         
         @media (max-width: 600px) {
@@ -297,6 +360,19 @@
             box-shadow: 0 0 30px rgba(255, 26, 26, 0.5);
         }
         
+        .result-image {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 20px;
+            display: block;
+            object-fit: contain;
+            filter: drop-shadow(0 0 15px rgba(255, 26, 26, 0.8));
+        }
+        
+        .result-success .result-image {
+            filter: drop-shadow(0 0 15px rgba(77, 255, 77, 0.8));
+        }
+        
         .result-title {
             font-family: 'Orbitron', sans-serif;
             font-size: 1.8em;
@@ -370,7 +446,7 @@
     <div class="container">
         <div class="logo-container">
             <!-- Dead by Daylight Logo from assets folder -->
-            <img src="/assets/dbd logo.png" 
+            <img src="/assets/dbd-logo.png" 
                  alt="Dead by Daylight Logo" 
                  class="logo" 
                  id="dbd-logo-main"
@@ -387,73 +463,229 @@
         </div>
         
         <h1>ESCAPE PROBABILITY CALCULATOR</h1>
-        <p class="subtitle">Your fate awaits... will you survive?</p>
         
         <form id="predictionForm">
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="survivor_gender">Survivor Gender</label>
-                    <select id="survivor_gender" name="survivor_gender" required>
-                        <option value="">-- Select --</option>
-                        <option value="F">Female</option>
-                        <option value="M">Male</option>
-                    </select>
+            <!-- Player Characteristics Section -->
+            <div class="form-section">
+                <h2 class="form-section-title">Player Characteristics</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="survivor_gender">
+                            <span class="gender-symbol">♂ ♀</span>
+                            Survivor Gender
+                        </label>
+                        <select id="survivor_gender" name="survivor_gender" required>
+                            <option value="">-- Select --</option>
+                            <option value="F">Female</option>
+                            <option value="M">Male</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="steam_player">
+                            <img src="/assets/steam.png" alt="Steam" class="icon">
+                            Steam Player
+                        </label>
+                        <select id="steam_player" name="steam_player" required>
+                            <option value="">-- Select --</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="steam_player">Steam Player</label>
-                    <select id="steam_player" name="steam_player" required>
-                        <option value="">-- Select --</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                    </select>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="anonymous_mode">
+                            <img src="/assets/anonymous.png" alt="Anonymous" class="icon">
+                            Anonymous Mode
+                        </label>
+                        <select id="anonymous_mode" name="anonymous_mode" required>
+                            <option value="">-- Select --</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="prestige">Prestige (0-100)</label>
+                        <input type="number" id="prestige" name="prestige" min="0" max="100" required>
+                    </div>
                 </div>
             </div>
             
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="anonymous_mode">Anonymous Mode</label>
-                    <select id="anonymous_mode" name="anonymous_mode" required>
-                        <option value="">-- Select --</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="item">Item Brought</label>
-                    <select id="item" name="item" required>
-                        <option value="">-- Select --</option>
-                        <option value="Firecracker">Firecracker</option>
-                        <option value="Flashlight">Flashlight</option>
-                        <option value="Key">Key</option>
-                        <option value="Map">Map</option>
-                        <option value="Medkit">Medkit</option>
-                        <option value="Toolbox">Toolbox</option>
-                        <option value="None">None</option>
-                    </select>
+            <!-- Items Section -->
+            <div class="form-section">
+                <h2 class="form-section-title">Items</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="item">
+                            <img src="/assets/flashlight.png" alt="Item" class="icon">
+                            Item Brought
+                        </label>
+                        <select id="item" name="item" required>
+                            <option value="">-- Select --</option>
+                            <option value="Firecracker">Firecracker</option>
+                            <option value="Flashlight">Flashlight</option>
+                            <option value="Key">Key</option>
+                            <option value="Map">Map</option>
+                            <option value="Medkit">Medkit</option>
+                            <option value="Toolbox">Toolbox</option>
+                            <option value="None">None</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="powerful_add_ons">
+                            <span class="icon-group">
+                                <img src="/assets/syringe.png" alt="Syringe" class="icon">
+                                <img src="/assets/styptic.png" alt="Styptic" class="icon">
+                            </span>
+                            Powerful Add-ons
+                        </label>
+                        <select id="powerful_add_ons" name="powerful_add_ons" required>
+                            <option value="">-- Select --</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
                 </div>
             </div>
             
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="prestige">Prestige</label>
-                    <input type="number" id="prestige" name="prestige" min="0" max="100" required>
+            <!-- Map Information Section -->
+            <div class="form-section">
+                <h2 class="form-section-title">Map Information</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="map_type">
+                            <img src="/assets/map.png" alt="Map" class="icon">
+                            Map Type
+                        </label>
+                        <select id="map_type" name="map_type" required>
+                            <option value="">-- Select --</option>
+                            <option value="Outdoor">Outdoor</option>
+                            <option value="Indoor">Indoor</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="map_area">Map Area (m²)</label>
+                        <input type="number" id="map_area" name="map_area" min="0" step="0.01" placeholder="Enter area in square meters" required>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Perks Section -->
+            <div class="form-section">
+                <h2 class="form-section-title">Perks</h2>
+                
+                <!-- Exhaustion Perks -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="exhaustion_perk">
+                            <img src="/assets/exhaustion.png" alt="Exhaustion" class="icon">
+                            Exhaustion Perk
+                        </label>
+                        <select id="exhaustion_perk" name="exhaustion_perk" required>
+                            <option value="">-- Select --</option>
+                            <option value="None">None</option>
+                            <option value="Sprint Burst">Sprint Burst</option>
+                            <option value="Dead Hard">Dead Hard</option>
+                            <option value="Lithe">Lithe</option>
+                            <option value="Overcome">Overcome</option>
+                            <option value="DHBL">DHBL</option>
+                            <option value="Balanced Landing">Balanced Landing</option>
+                            <option value="Background Player">Background Player</option>
+                            <option value="Head On">Head On</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="chase_perks">
+                            Number of Chase Perks
+                            <span class="icon-group">
+                                <img src="/assets/windows.png" alt="Windows" class="icon">
+                                <img src="/assets/resilience.png" alt="Resilience" class="icon">
+                                <img src="/assets/finesse.png" alt="Finesse" class="icon">
+                            </span>
+                        </label>
+                        <input type="number" id="chase_perks" name="chase_perks" min="0" max="3" value="0" required>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="map_area">Map Area (m²)</label>
-                    <input type="number" id="map_area" name="map_area" min="0" step="0.01" placeholder="Enter area in square meters" required>
+                <!-- Other Perks -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="decisive_strike">
+                            <img src="/assets/decisive-strike.png" alt="Decisive Strike" class="icon">
+                            Decisive Strike
+                        </label>
+                        <select id="decisive_strike" name="decisive_strike" required>
+                            <option value="">-- Select --</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="unbreakable">
+                            <img src="/assets/unbreakable.png" alt="Unbreakable" class="icon">
+                            Unbreakable
+                        </label>
+                        <select id="unbreakable" name="unbreakable" required>
+                            <option value="">-- Select --</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="survivor_bp">Survivor BP (Bloodpoints)</label>
-                    <input type="number" id="survivor_bp" name="survivor_bp" min="0" required>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="off_the_record">
+                            <img src="/assets/off-the-record.png" alt="Off the Record" class="icon">
+                            Off the Record
+                        </label>
+                        <select id="off_the_record" name="off_the_record" required>
+                            <option value="">-- Select --</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="adrenaline">
+                            <img src="/assets/adrenaline.png" alt="Adrenaline" class="icon">
+                            Adrenaline
+                        </label>
+                        <select id="adrenaline" name="adrenaline" required>
+                            <option value="">-- Select --</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
+                    </div>
                 </div>
-                
-                <div class="form-group">
-                    <label for="killer_bp">Killer BP (Bloodpoints)</label>
-                    <input type="number" id="killer_bp" name="killer_bp" min="0" required>
+            </div>
+            
+            <!-- Bloodpoints Section -->
+            <div class="form-section">
+                <h2 class="form-section-title">Bloodpoints</h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="survivor_bp">
+                            <img src="/assets/bloodpoints.png" alt="Bloodpoints" class="icon">
+                            Survivor BP (Bloodpoints)
+                        </label>
+                        <input type="number" id="survivor_bp" name="survivor_bp" min="0" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="killer_bp">
+                            <img src="/assets/bloodpoints.png" alt="Bloodpoints" class="icon">
+                            Killer BP (Bloodpoints)
+                        </label>
+                        <input type="number" id="killer_bp" name="killer_bp" min="0" required>
+                    </div>
                 </div>
             </div>
             
@@ -487,7 +719,15 @@
                 anonymous_mode: document.getElementById('anonymous_mode').value,
                 item: document.getElementById('item').value,
                 prestige: parseFloat(document.getElementById('prestige').value),
+                map_type: document.getElementById('map_type').value,
                 map_area: parseFloat(document.getElementById('map_area').value),
+                powerful_add_ons: document.getElementById('powerful_add_ons').value,
+                exhaustion_perk: document.getElementById('exhaustion_perk').value,
+                chase_perks: parseFloat(document.getElementById('chase_perks').value) || 0,
+                decisive_strike: document.getElementById('decisive_strike').value,
+                unbreakable: document.getElementById('unbreakable').value,
+                off_the_record: document.getElementById('off_the_record').value,
+                adrenaline: document.getElementById('adrenaline').value,
                 survivor_bp: parseFloat(document.getElementById('survivor_bp').value),
                 killer_bp: parseFloat(document.getElementById('killer_bp').value)
             };
@@ -513,10 +753,13 @@
                 const willEscape = data.will_escape;
                 
                 resultDiv.className = `result-container ${willEscape ? 'result-success' : 'result-failure'}`;
+                const outcomeImage = willEscape ? 'escaped.png' : 'sacrificed.png';
+                const outcomeTitle = willEscape ? 'ESCAPED' : 'SACRIFICED';
+                
                 resultDiv.innerHTML = `
-                    <div class="result-title">${willEscape ? '✓ ESCAPE SUCCESSFUL' : '✗ DEATH INEVITABLE'}</div>
+                    <img src="/assets/${outcomeImage}" alt="${willEscape ? 'Escaped' : 'Sacrificed'}" class="result-image">
+                    <div class="result-title">${outcomeTitle}</div>
                     <div class="result-percentage">${escapeChance}%</div>
-                    <div class="result-message">Escape Probability: ${escapeChance}%</div>
                 `;
                 resultDiv.style.display = 'block';
                 
