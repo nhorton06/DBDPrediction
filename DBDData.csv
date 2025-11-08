@@ -263,26 +263,6 @@ F,No,No,100,Medkit,No,Dead Hard,0,Yes,No,Yes,No,Outdoor,8960,25953,33120,Escape
 F,No,No,30,Medkit,Yes,Lithe,0,No,No,No,No,Outdoor,8960,24294,33120,Escape
 F,No,No,64,Medkit,Yes,Lithe,1,No,No,No,Yes,Outdoor,8960,20241,33120,Dead
 M,No,No,36,Medkit,Yes,Sprint Burst,1,No,No,No,No,Outdoor,8960,12758,33120,Dead
-F,Yes,No,26,Medkit,,,,,,,,Outdoor,9216,,,Escape
-M,Yes,No,100,Flashlight,No,,,,,,,Outdoor,9216,,,Dead
-M,Yes,No,2,None,No,,,,,,,Outdoor,9216,,,Dead
-F,No,No,3,Medkit,,,,,,,,Outdoor,9216,,,Dead
-F,Yes,No,6,None,No,,,,,,,Outdoor,9800,,,Dead
-F,Yes,Yes,10,None,No,,,,,,,Outdoor,9800,,,Dead
-F,No,No,18,None,No,,,,,,,Outdoor,9800,,,Dead
-F,Yes,No,100,None,No,,,,,,,Outdoor,9800,,,Dead
-M,No,No,35,Medkit,,,,,,,,Outdoor,9984,,,Escape
-F,Yes,No,21,Medkit,,,,,,,,Outdoor,9984,,,Escape
-F,Yes,No,100,Medkit,,,,,,,,Outdoor,9984,,,Escape
-M,No,No,6,Medkit,,,,,,,,Outdoor,9984,,,Dead
-M,No,No,94,Flashlight,No,,,,,,,Outdoor,11264,,,Escape
-F,Yes,No,2,Medkit,,,,,,,,Outdoor,11264,,,Escape
-F,Yes,No,5,Flashlight,No,,,,,,,Outdoor,11264,,,Dead
-F,Yes,No,100,None,No,,,,,,,Outdoor,11264,,,Dead
-M,No,No,95,Flashlight,No,,,,,,,Outdoor,9728,,,Escape
-F,Yes,No,2,None,No,,,,,,,Outdoor,9728,,,Dead
-F,Yes,No,63,Toolbox,,,,,,,,Outdoor,9728,,,Dead
-M,No,No,15,Toolbox,,,,,,,,Outdoor,9728,,,Dead
 F,No,No,2,Medkit,No,Lithe,2,No,No,No,No,Indoor,8832,17647,16543,Escape
 F,No,No,100,Medkit,Yes,None,2,Yes,No,No,No,Indoor,8832,8338,16543,Dead
 F,No,No,3,Flashlight,No,Lithe,1,No,No,No,No,Indoor,8832,6143,16543,Dead
@@ -299,10 +279,6 @@ F,Yes,No,88,Medkit,No,Dead Hard,0,Yes,Yes,No,No,Indoor,6272,7939,17147,Dead
 F,No,No,7,Medkit,No,Balanced Landing,2,No,No,No,No,Indoor,6272,4488,17147,Dead
 M,Yes,No,64,Medkit,No,Overcome,0,No,No,No,No,Indoor,6272,3147,17147,Dead
 M,No,No,81,Flashlight,No,Dead Hard,2,No,No,No,No,Indoor,6272,2605,17147,Dead
-M,Yes,No,9,Medkit,,,,,,,,Outdoor,10240,,,Dead
-M,No,No,2,Toolbox,,,,,,,,Outdoor,10240,,,Dead
-M,No,No,17,Toolbox,,,,,,,,Outdoor,10240,,,Dead
-F,Yes,No,100,Medkit,,,,,,,,Outdoor,10240,,,Dead
 M,No,No,34,Medkit,Yes,Balanced Landing,1,No,No,No,No,Outdoor,10240,20980,36476,Dead
 F,Yes,No,6,Medkit,No,None,0,No,No,No,No,Outdoor,10240,19572,36476,Dead
 F,No,No,23,Flashlight,No,Lithe,1,No,Yes,Yes,No,Outdoor,10240,14061,36476,Dead
@@ -315,10 +291,6 @@ M,Yes,No,3,Medkit,No,Dead Hard,0,No,No,No,No,Outdoor,9984,20499,33688,Dead
 M,Yes,No,2,None,No,Balanced Landing,1,No,No,No,No,Outdoor,9984,17341,33688,Dead
 M,Yes,No,1,Medkit,No,None,0,No,No,No,No,Outdoor,9984,16344,33688,Dead
 F,No,No,33,Flashlight,No,Dead Hard,1,No,No,No,No,Outdoor,9984,11425,33688,Dead
-F,Yes,No,4,Toolbox,,,,,,,,Outdoor,10240,,,Dead
-F,No,Yes,6,Medkit,,,,,,,,Outdoor,10240,,,Dead
-F,No,No,11,Toolbox,,,,,,,,Outdoor,10240,,,Dead
-M,Yes,No,16,Toolbox,,,,,,,,Outdoor,10240,,,Dead
 F,Yes,No,40,Toolbox,Yes,DHBL,0,No,No,Yes,No,Outdoor,8448,29278,23878,Escape
 F,No,No,77,Toolbox,No,None,0,No,No,No,No,Outdoor,8448,17554,23878,Dead
 F,Yes,No,9,None,No,None,1,No,No,Yes,No,Outdoor,8448,8678,23878,Dead
@@ -335,18 +307,6 @@ M,Yes,No,3,Medkit,No,None,1,No,No,No,No,Outdoor,9984,59008,64636,Escape
 F,Yes,No,82,Flashlight,No,Dead Hard,1,Yes,Yes,No,No,Outdoor,9984,55525,64636,Escape
 F,Yes,No,10,None,No,None,1,No,No,No,No,Outdoor,9984,32685,64636,Escape
 F,Yes,No,100,None,No,Dramaturgy,1,No,No,No,No,Outdoor,9984,26346,64636,Dead
-F,Yes,No,3,Medkit,,,,,,,,Outdoor,9984,,,Dead
-F,No,No,16,Toolbox,,,,,,,,Outdoor,9984,,,Dead
-F,No,No,0,Flashlight,No,,,,,,,Outdoor,9984,,,Dead
-F,Yes,No,40,Toolbox,,,,,,,,Outdoor,9984,,,Dead
-M,No,No,13,Medkit,,,,,,,,Outdoor,9472,,,Escape
-M,No,No,66,Toolbox,,,,,,,,Outdoor,9472,,,Escape
-F,Yes,No,77,Toolbox,,,,,,,,Outdoor,9472,,,Escape
-F,No,No,100,Toolbox,,,,,,,,Outdoor,9472,,,Dead
-F,Yes,Yes,76,Medkit,,,,,,,,Outdoor,9472,,,Escape
-F,No,No,77,Flashlight,No,,,,,,,Outdoor,9472,,,Escape
-F,No,No,13,Flashlight,No,,,,,,,Outdoor,9472,,,Dead
-F,Yes,No,19,Toolbox,,,,,,,,Outdoor,9472,,,Dead
 F,No,No,52,Medkit,Yes,Lithe,1,No,No,Yes,Yes,Outdoor,8704,24163,26875,Escape
 M,No,No,56,Flashlight,No,Sprint Burst,0,No,No,No,No,Outdoor,8704,20890,26875,Dead
 F,No,No,31,Medkit,No,Dead Hard,2,No,No,No,No,Outdoor,8704,16270,26875,Dead
