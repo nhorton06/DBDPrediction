@@ -21,9 +21,14 @@ This project is a machine learning web application that predicts a survivor's pr
 
 ### Architecture Diagram
 
-![System Architecture](assets/architecture.png)
+The system follows a simple request-response flow:
+1. User submits form data via web interface
+2. Flask receives and validates input
+3. Features are preprocessed and scaled
+4. PyTorch model performs inference
+5. Result (escape probability) is returned and displayed
 
-*Note: Place architecture diagram PNG in `/assets/architecture.png`*
+*Note: A visual architecture diagram can be added to `/assets/architecture.png` if needed*
 
 **System Flow:**
 1. User inputs game parameters via web interface or API
@@ -64,6 +69,25 @@ This project is a machine learning web application that predicts a survivor's pr
 
 - Docker and Docker Compose installed
 - `DBDData.csv` file in the project root (will be used for training)
+
+### Docker (Single Command)
+
+```bash
+# Build the image
+docker build -t dbd-predictor:latest .
+
+# Run the container (mounts DBDData.csv for training)
+docker run --rm -p 5000:5000 \
+  -v $(pwd)/DBDData.csv:/app/DBDData.csv:ro \
+  -e FLASK_ENV=production \
+  -e FLASK_APP=app.py \
+  -e TRAINING_CSV=/app/DBDData.csv \
+  -e MODEL_OUTPUT_DIR=/app \
+  dbd-predictor:latest
+
+# Health check (in another terminal)
+curl http://localhost:5000/health
+```
 
 ### Docker Compose (Recommended)
 
