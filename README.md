@@ -65,6 +65,8 @@ The system follows a simple request-response flow:
 
 ## 3) How to Run (Local)
 
+### **Important Note**: Setting up the container and running it for the first time can take a pretty large amount of time (upwards of 20 minutes). Please be patient as this project uses machine learning and neural network modules.
+
 ### Prerequisites
 
 - Docker and Docker Compose installed
