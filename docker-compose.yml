@@ -7,7 +7,8 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      # Mount CSV file for training (model will be trained on startup)
+      # Optional: Mount CSV file to override the one in the image (for local development)
+      # If not mounted, the CSV from the Docker image will be used
       - ./DBDData.csv:/app/DBDData.csv:ro
       # Model files will be generated in /app (no need to mount)
     environment:
