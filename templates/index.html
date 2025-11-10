@@ -249,6 +249,13 @@
             max-width: 90vw;
         }
         
+        .info-icon .tooltip.compact {
+            width: auto;
+            white-space: nowrap;
+            text-align: center;
+            padding: 8px 12px;
+        }
+        
         .info-icon .tooltip::after {
             content: "";
             position: absolute;
@@ -604,9 +611,9 @@
                     <div class="form-group">
                         <label for="prestige">
                             <img src="/assets/prestige.png" alt="Prestige" class="prestige-icon">
-                            Prestige (0-100)
+                            Survivor Prestige
                         </label>
-                        <input type="number" id="prestige" name="prestige" min="0" max="100" required>
+                        <input type="number" id="prestige" name="prestige" min="0" max="100" placeholder="0-100" required>
                     </div>
                 </div>
             </div>
@@ -676,7 +683,7 @@
                         <label for="map_area">
                             Map Area (m²)
                             <span class="info-icon">?
-                                <span class="tooltip wide">
+                                <span class="tooltip compact">
                                     See for exact areas: <a href="https://deadbydaylight.fandom.com/wiki/Realms" target="_blank">https://deadbydaylight.fandom.com/wiki/Realms</a>
                                 </span>
                             </span>
@@ -723,7 +730,7 @@
                                 </span>
                             </span>
                         </label>
-                        <input type="number" id="chase_perks" name="chase_perks" min="0" max="3" value="0" placeholder="0-3" required>
+                        <input type="number" id="chase_perks" name="chase_perks" min="0" max="3" placeholder="0-3" required>
                     </div>
                 </div>
                 
@@ -873,7 +880,7 @@
                 resultDiv.innerHTML = `
                     <img src="/assets/${outcomeImage}" alt="${willEscape ? 'Escaped' : 'Sacrificed'}" class="result-image">
                     <div class="result-title">${outcomeTitle}</div>
-                    <div class="result-percentage">${escapeChance}%</div>
+                    <div class="result-percentage">Escape Chance: ${escapeChance}%</div>
                 `;
                 resultDiv.style.display = 'block';
                 

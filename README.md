@@ -113,11 +113,10 @@ docker-compose down
 
 # Rebuild after code changes
 docker-compose down
-docker-compose build
-docker-compose up -d
+docker-compose up -d --build
 ```
 
-**Note**: The model trains automatically on startup, so the first request may take 1-2 minutes while training completes. Subsequent requests are instant.
+**Note**: The model trains automatically on startup, so the first request may take a few minutes while training completes. Subsequent requests are instant.
 
 ## 4) Design Decisions
 
