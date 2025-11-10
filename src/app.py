@@ -104,7 +104,7 @@ def build_feature_vector(data, model_info):
     
     # Items (one-hot encode)
     item = data.get('item', 'None')
-    items = ['Firecracker', 'Flashlight', 'Key', 'Map', 'Medkit', 'Toolbox', 'None']
+    items = ['Firecracker', 'Flashlight', 'Fog Vial', 'Key', 'Map', 'Medkit', 'Toolbox', 'None']
     for item_name in items:
         col_name = f'Brought_{item_name}'
         if col_name in model_info.get('feature_names', []):
