@@ -283,6 +283,8 @@ DBDPrediction/
    - Update data as game patches and updates are released
    - Add more sophisticated feature engineering
    - Implement model versioning
+   - Export weights for analyzing potential improvements based off heavier weights (more impactful variables)
+   - Cloud deployment
 
 ### Recent Updates
 
