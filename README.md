@@ -47,21 +47,25 @@ The system follows a simple request-response flow:
 
 **Model:**
 - **Type**: PyTorch Neural Network (2 hidden layers, batch normalization, dropout)
-- **Input Features**: 31 features including:
+- **Dual Models**: Two models are trained and available:
+  - **With Bloodpoints**: Includes survivor BP and killer BP as features (31 total features)
+  - **Without Bloodpoints**: Excludes bloodpoint features (29 total features)
+- **Input Features** (With BP model):
   - Player characteristics (gender, steam player, anonymous mode, prestige)
   - Items and equipment (item type, powerful add-ons)
   - Map information (map type, map area)
   - Perks (exhaustion perks, chase perks count, decisive strike, unbreakable, off the record, adrenaline)
   - Bloodpoints (survivor BP, killer BP)
+- **Input Features** (Without BP model): Same as above, excluding bloodpoint features
 - **Output**: Binary classification probability (escape vs. sacrifice)
-- **Training**: Automatically trains on container startup (15 epochs)
-- **Format**: Saved as `dbd_model.pth` (PyTorch state dict), `scaler.pkl` (scikit-learn StandardScaler), `model_info.pkl` (architecture metadata)
-- **Size**: Model weights ~few MB, total artifacts ~10-50 MB
+- **Training**: Automatically trains both models on container startup with early stopping (max 100 epochs, patience 5)
+- **Format**: Saved as `dbd_model_with_bp.pth` / `dbd_model_no_bp.pth` (PyTorch state dict), `scaler_with_bp.pkl` / `scaler_no_bp.pkl` (scikit-learn StandardScaler), `model_info_with_bp.pkl` / `model_info_no_bp.pkl` (architecture metadata)
+- **Size**: Model weights ~few MB each, total artifacts ~20-100 MB
 
 **Services:**
-- **Web Interface**: Flask web server (port 5000)
-- **API Endpoint**: POST `/predict` for programmatic access
-- **Health Check**: GET `/health` for container health monitoring
+- **Web Interface**: Flask web server (port 5000) with toggle switch to select between models
+- **API Endpoint**: POST `/predict` for programmatic access (includes `model_type` parameter: `with_bp` or `no_bp`)
+- **Health Check**: GET `/health` for container health monitoring (reports status of both models)
 
 ## 3) How to Run (Local)
 
@@ -91,6 +95,24 @@ docker run --rm -p 5000:5000 \
 curl http://localhost:5000/health
 ```
 
+### Docker Hub (Pre-built Image)
+
+```bash
+# Pull the pre-built image from Docker Hub
+docker pull h2x0/dbd-predictor:latest
+
+# Run the container
+docker run --rm -p 5000:5000 \
+  -v $(pwd)/DBDData.csv:/app/DBDData.csv:ro \
+  -e FLASK_ENV=production \
+  -e FLASK_APP=app.py \
+  -e TRAINING_CSV=/app/DBDData.csv \
+  -e MODEL_OUTPUT_DIR=/app \
+  h2x0/dbd-predictor:latest
+```
+
+**Note**: The Docker Hub image includes `DBDData.csv` in the image, so the volume mount is optional (useful for overriding with local data).
+
 ### Docker Compose (Recommended)
 
 ```bash
@@ -113,10 +135,11 @@ docker-compose down
 
 # Rebuild after code changes
 docker-compose down
-docker-compose up -d --build
+docker-compose build
+docker-compose up -d
 ```
 
-**Note**: The model trains automatically on startup, so the first request may take a few minutes while training completes. Subsequent requests are instant.
+**Note**: Both models train automatically on startup, so the first request may take a few minutes while training completes. Subsequent requests are instant. The web interface includes a toggle switch to select between the "With Bloodpoints" and "Without Bloodpoints" models.
 
 ## 4) Design Decisions
 
@@ -133,6 +156,11 @@ docker-compose up -d --build
 - **Tradeoff**: Smaller image size and faster builds, but no GPU acceleration
 - **Impact**: Build times are quick (~30 seconds), and inference is fast enough for web use (~5-10 ms per prediction)
 
+**Dual Model Approach**:
+- **Decision**: Train two separate models (with/without bloodpoints) to allow users to choose
+- **Tradeoff**: Doubles training time and storage, but provides flexibility
+- **Rationale**: Bloodpoints may be overly influential on predictions; users can choose based on their preference
+
 **Complexity vs. Maintainability**:
 - **Decision**: Custom neural network architecture vs. simpler models
 - **Tradeoff**: More complex model requires careful architecture matching between training and inference
@@ -142,6 +170,7 @@ docker-compose up -d --build
 - **Decision**: Automatic model training on startup vs. pre-trained models
 - **Tradeoff**: Training on startup ensures fresh models but increases startup time
 - **Rationale**: Automatic training ensures models are always up-to-date with the latest data
+- **Early Stopping**: Implemented to prevent overfitting and improve generalization as dataset grows (max 100 epochs, patience 5)
 
 ### Security/Privacy
 
@@ -185,11 +214,11 @@ docker-compose up -d --build
 - GPU: Not currently used (CPU-only PyTorch)
 
 **Known Limitations**:
-1. Model trains on every container startup (adds ~30-60 seconds to startup time)
+1. Both models train on every container startup (adds ~60-120 seconds to startup time)
 2. No database persistence (stateless predictions only)
 3. Single-threaded Flask server (not production-grade for high traffic)
 4. No authentication/authorization (suitable for local use only)
-5. Training data must be provided via volume mount (`DBDData.csv`)
+5. Training data can be provided via volume mount (`DBDData.csv`) or is included in Docker Hub image
 
 ## 5) Results & Evaluation
 
@@ -210,12 +239,40 @@ docker-compose up -d --build
 {
   "escape_chance": 67.45,
   "will_escape": true,
-  "probability": 0.6745
+  "probability": 0.6745,
+  "model_type": "with_bp"
 }
 ```
 
+**API Request Example:**
+```json
+{
+  "model_type": "with_bp",
+  "survivor_gender": "Female",
+  "steam_player": "Yes",
+  "anonymous_mode": "No",
+  "item": "Flashlight",
+  "prestige": 5,
+  "map_type": "Indoor",
+  "map_area": 8500,
+  "powerful_add_ons": "Yes",
+  "exhaustion_perk": "Sprint Burst",
+  "chase_perks": 2,
+  "decisive_strike": "Yes",
+  "unbreakable": "No",
+  "off_the_record": "No",
+  "adrenaline": "Yes",
+  "survivor_bp": 25000,
+  "killer_bp": 18000
+}
+```
+
+**Note**: When using `model_type: "no_bp"`, omit `survivor_bp` and `killer_bp` from the request.
+
 **Web Interface:**
-- Categorized form sections (Player Characteristics, Items, Map Information, Perks, Bloodpoints)
+- Model selection toggle switch (With Bloodpoints / Without Bloodpoints)
+- Categorized form sections (Player Characteristics, Items, Map Information, Perks, Match Bloodpoints)
+- Bloodpoints section dynamically shows/hides based on selected model
 - Icon-enhanced inputs for better visual recognition
 - Displays escape probability as percentage
 - Color-coded results (green for escape, red for sacrifice)
@@ -230,10 +287,10 @@ docker-compose up -d --build
 - Network latency: Minimal (local deployment)
 
 **Resource Usage**:
-- Container startup: ~30-60 seconds (includes model training)
-- Training time: ~15-30 seconds (15 epochs)
-- Memory footprint: ~500 MB base + model size
-- Disk I/O: Minimal (model loaded once after training)
+- Container startup: ~60-120 seconds (includes training both models)
+- Training time: ~30-90 seconds per model (varies with early stopping, max 100 epochs)
+- Memory footprint: ~500 MB base + model size (both models loaded in memory)
+- Disk I/O: Minimal (models loaded once after training)
 
 ### Validation/Tests
 
@@ -288,12 +345,14 @@ DBDPrediction/
 
 ### Recent Updates
 
+   - **Dual Model Support**: Added toggle to switch between models with/without bloodpoint features
+   - **Early Stopping**: Implemented early stopping (max 100 epochs, patience 5) for better generalization
+   - **Docker Hub Deployment**: Image available at `h2x0/dbd-predictor:latest`
    - Added comprehensive perk support (exhaustion, chase, other perks)
    - Added map type and powerful add-ons features
-   - Organized UI into categorized sections
+   - Organized UI into categorized sections with model selection toggle
    - Enhanced interface with icons for better UX
    - Simplified outcome display
-   - Reduced training epochs for faster startup
    - Added unit tests
    - Improved code organization (src/ folder structure)
 

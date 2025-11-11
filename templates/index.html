@@ -80,6 +80,7 @@
         .container {
             max-width: 900px;
             margin: 0 auto;
+            text-align: center;
             background: linear-gradient(145deg, #1a1a1a 0%, #0d0d0d 100%);
             border: 2px solid #3a0000;
             border-radius: 10px;
@@ -541,6 +542,111 @@
             text-transform: uppercase;
             letter-spacing: 1px;
         }
+        
+        .model-toggle {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin: 20px auto 10px auto;
+            padding: 0 10px;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 1px solid rgba(139, 0, 0, 0.5);
+            line-height: 1;
+        }
+        
+        .model-toggle > * {
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .model-toggle-label {
+            font-family: 'Orbitron', sans-serif;
+            color: #ff4444;
+            font-weight: 700;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 45px;
+            height: 20px;
+            margin: 0;
+            flex-shrink: 0;
+            transform: translateY(14px);
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #3a0000;
+            transition: 0.3s;
+            border-radius: 20px;
+            border: none;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+            height: 20px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 1px;
+            top: 1px;
+            background-color: #ff1a1a;
+            transition: 0.3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #8b0000;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(25px);
+            background-color: #ff1a1a;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+        }
+        
+        .toggle-option {
+            font-family: 'Roboto', sans-serif;
+            color: #e0e0e0;
+            font-size: 0.9em;
+            font-weight: 600;
+            line-height: 1;
+            white-space: nowrap;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            height: 20px;
+        }
+        
+        .toggle-option.active {
+            color: #ff4444;
+            text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+        }
     </style>
 </head>
 <body>
@@ -564,6 +670,15 @@
         </div>
         
         <h1>ESCAPE PROBABILITY CALCULATOR</h1>
+        
+        <div class="model-toggle">
+            <span class="toggle-option" id="option-no-bp">Without Bloodpoints</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="modelToggle" checked>
+                <span class="toggle-slider"></span>
+            </label>
+            <span class="toggle-option active" id="option-with-bp">With Bloodpoints</span>
+        </div>
         
         <form id="predictionForm">
             <!-- Player Characteristics Section -->
@@ -789,8 +904,8 @@
             </div>
             
             <!-- Bloodpoints Section -->
-            <div class="form-section">
-                <h2 class="form-section-title">Bloodpoints</h2>
+            <div class="form-section" id="bloodpoints-section">
+                <h2 class="form-section-title" id="bloodpoints-title">Match Bloodpoints</h2>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="survivor_bp">
@@ -824,6 +939,37 @@
         const resultDiv = document.getElementById('result');
         const loadingDiv = document.getElementById('loading');
         const errorDiv = document.getElementById('error');
+        const modelToggle = document.getElementById('modelToggle');
+        const optionWithBp = document.getElementById('option-with-bp');
+        const optionNoBp = document.getElementById('option-no-bp');
+        const bloodpointsSection = document.getElementById('bloodpoints-section');
+        const bloodpointsTitle = document.getElementById('bloodpoints-title');
+        
+        // Handle toggle switch
+        modelToggle.addEventListener('change', function() {
+            const useBp = this.checked;
+            if (useBp) {
+                optionWithBp.classList.add('active');
+                optionNoBp.classList.remove('active');
+                if (bloodpointsSection) {
+                    bloodpointsSection.style.display = 'block';
+                }
+                if (bloodpointsTitle) {
+                    bloodpointsTitle.textContent = 'Match Bloodpoints';
+                }
+            } else {
+                optionWithBp.classList.remove('active');
+                optionNoBp.classList.add('active');
+                if (bloodpointsSection) {
+                    bloodpointsSection.style.display = 'none';
+                }
+            }
+        });
+        
+        // Initialize on page load
+        if (bloodpointsSection) {
+            bloodpointsSection.style.display = modelToggle.checked ? 'block' : 'none';
+        }
         
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -833,8 +979,13 @@
             errorDiv.style.display = 'none';
             loadingDiv.style.display = 'block';
             
+            // Determine which model to use
+            const useBp = modelToggle.checked;
+            const modelType = useBp ? 'with_bp' : 'no_bp';
+            
             // Collect form data
             const formData = {
+                model_type: modelType,
                 survivor_gender: document.getElementById('survivor_gender').value,
                 steam_player: document.getElementById('steam_player').value,
                 anonymous_mode: document.getElementById('anonymous_mode').value,
@@ -848,10 +999,14 @@
                 decisive_strike: document.getElementById('decisive_strike').value,
                 unbreakable: document.getElementById('unbreakable').value,
                 off_the_record: document.getElementById('off_the_record').value,
-                adrenaline: document.getElementById('adrenaline').value,
-                survivor_bp: parseFloat(document.getElementById('survivor_bp').value),
-                killer_bp: parseFloat(document.getElementById('killer_bp').value)
+                adrenaline: document.getElementById('adrenaline').value
             };
+            
+            // Only include BP if using BP model
+            if (useBp) {
+                formData.survivor_bp = parseFloat(document.getElementById('survivor_bp').value);
+                formData.killer_bp = parseFloat(document.getElementById('killer_bp').value);
+            }
             
             try {
                 const response = await fetch('/predict', {

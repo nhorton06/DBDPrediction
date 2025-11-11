@@ -59,16 +59,18 @@ def binary_accuracy(y_pred, y_test):
     accuracy = torch.round(accuracy * 100)
     return accuracy
 
-def train_model(csv_path='DBDData.csv', output_dir='/app'):
+def train_model(csv_path='DBDData.csv', output_dir='/app', include_bp=True):
     """
     Train the DBD escape prediction model.
     
     Args:
         csv_path: Path to the training CSV file
         output_dir: Directory to save model files
+        include_bp: If True, include bloodpoint columns; if False, exclude them
     """
+    model_type = "with BP" if include_bp else "without BP"
     print("=" * 60)
-    print("DBD Escape Prediction Model Training")
+    print(f"DBD Escape Prediction Model Training ({model_type})")
     print("=" * 60)
     
     # Check if CSV exists
@@ -176,15 +178,16 @@ def train_model(csv_path='DBDData.csv', output_dir='/app'):
         if f'Brought_{item}' not in dataset_cleaned.columns:
             dataset_cleaned[f'Brought_{item}'] = 0
     
-    # Fill NaN for numeric columns
+    # Fill NaN for numeric columns (only if including BP)
     numeric_cols = ['Survivor BP', 'Killer BP']
-    for col in numeric_cols:
-        if col in dataset_cleaned.columns:
-            if dataset_cleaned[col].isna().any():
-                median_val = dataset_cleaned[col].median()
-                if pd.isna(median_val):
-                    median_val = 0.0
-                dataset_cleaned[col] = dataset_cleaned[col].fillna(median_val)
+    if include_bp:
+        for col in numeric_cols:
+            if col in dataset_cleaned.columns:
+                if dataset_cleaned[col].isna().any():
+                    median_val = dataset_cleaned[col].median()
+                    if pd.isna(median_val):
+                        median_val = 0.0
+                    dataset_cleaned[col] = dataset_cleaned[col].fillna(median_val)
     
     # Build feature columns list dynamically
     feature_cols = ['Survivor Gender', 'Steam Player', 'Anonymous Mode', 'Prestige']
@@ -218,10 +221,11 @@ def train_model(csv_path='DBDData.csv', output_dir='/app'):
         map_type_cols = [col for col in dataset_cleaned.columns if col.startswith('MapType_')]
         feature_cols.extend(map_type_cols)
     
-    # Add BP columns
-    for col in numeric_cols:
-        if col in dataset_cleaned.columns:
-            feature_cols.append(col)
+    # Add BP columns (only if including BP)
+    if include_bp:
+        for col in numeric_cols:
+            if col in dataset_cleaned.columns:
+                feature_cols.append(col)
     
     # Check for any remaining NaN values and drop those rows
     # IMPORTANT: This only drops rows with actual NaN values, NOT "None" strings
@@ -408,9 +412,11 @@ def train_model(csv_path='DBDData.csv', output_dir='/app'):
     print(f"\nSaving model files to {output_dir}...")
     os.makedirs(output_dir, exist_ok=True)
     
-    model_path = os.path.join(output_dir, 'dbd_model.pth')
-    scaler_path = os.path.join(output_dir, 'scaler.pkl')
-    info_path = os.path.join(output_dir, 'model_info.pkl')
+    # Use different filenames based on whether BP is included
+    suffix = '_with_bp' if include_bp else '_no_bp'
+    model_path = os.path.join(output_dir, f'dbd_model{suffix}.pth')
+    scaler_path = os.path.join(output_dir, f'scaler{suffix}.pkl')
+    info_path = os.path.join(output_dir, f'model_info{suffix}.pkl')
     
     torch.save(model.state_dict(), model_path)
     print(f"   [OK] Model saved to {model_path}")
@@ -449,6 +455,30 @@ if __name__ == '__main__':
     csv_path = os.getenv('TRAINING_CSV', 'DBDData.csv')
     output_dir = os.getenv('MODEL_OUTPUT_DIR', '/app')
     
-    success = train_model(csv_path=csv_path, output_dir=output_dir)
-    sys.exit(0 if success else 1)
+    # Train both models: with BP and without BP
+    print("\n" + "=" * 60)
+    print("Training both models: with BP and without BP")
+    print("=" * 60 + "\n")
+    
+    # Train model with BP
+    success1 = train_model(csv_path=csv_path, output_dir=output_dir, include_bp=True)
+    
+    if not success1:
+        print("ERROR: Training model with BP failed!")
+        sys.exit(1)
+    
+    print("\n" + "=" * 60 + "\n")
+    
+    # Train model without BP
+    success2 = train_model(csv_path=csv_path, output_dir=output_dir, include_bp=False)
+    
+    if not success2:
+        print("ERROR: Training model without BP failed!")
+        sys.exit(1)
+    
+    print("\n" + "=" * 60)
+    print("[SUCCESS] Both models trained and saved successfully!")
+    print("=" * 60)
+    
+    sys.exit(0)
 

@@ -42,11 +42,16 @@ class DBDModel(nn.Module):
         return x
 
 # Load model and scaler
-def load_model():
-    """Load the trained model and scaler"""
+def load_model(include_bp=True):
+    """Load the trained model and scaler
+    
+    Args:
+        include_bp: If True, load model with BP; if False, load model without BP
+    """
     try:
+        suffix = '_with_bp' if include_bp else '_no_bp'
         # Load model info
-        with open('model_info.pkl', 'rb') as f:
+        with open(f'model_info{suffix}.pkl', 'rb') as f:
             model_info = pickle.load(f)
         
         # Initialize model
@@ -56,21 +61,23 @@ def load_model():
         )
         
         # Load model weights
-        model.load_state_dict(torch.load('dbd_model.pth', map_location='cpu'))
+        model.load_state_dict(torch.load(f'dbd_model{suffix}.pth', map_location='cpu'))
         model.eval()
         
         # Load scaler
-        with open('scaler.pkl', 'rb') as f:
+        with open(f'scaler{suffix}.pkl', 'rb') as f:
             scaler = pickle.load(f)
         
-        print("Model and scaler loaded successfully!")
-        return model, scaler
+        model_type = "with BP" if include_bp else "without BP"
+        print(f"Model {model_type} loaded successfully!")
+        return model, scaler, model_info
     except Exception as e:
         print(f"Error loading model: {e}")
-        return None, None
+        return None, None, None
 
-# Load model on startup
-model, scaler = load_model()
+# Load both models on startup
+model_with_bp, scaler_with_bp, model_info_with_bp = load_model(include_bp=True)
+model_no_bp, scaler_no_bp, model_info_no_bp = load_model(include_bp=False)
 
 @app.route('/')
 def index():
@@ -82,7 +89,8 @@ def health():
     """Health check endpoint for Docker and monitoring"""
     return jsonify({
         'status': 'healthy',
-        'model_loaded': model is not None and scaler is not None
+        'model_with_bp_loaded': model_with_bp is not None and scaler_with_bp is not None,
+        'model_no_bp_loaded': model_no_bp is not None and scaler_no_bp is not None
     }), 200
 
 def build_feature_vector(data, model_info):
@@ -146,7 +154,7 @@ def build_feature_vector(data, model_info):
         if col_name in model_info.get('feature_names', []):
             features.append(1 if map_type == mt else 0)
     
-    # BP columns
+    # BP columns (only if model includes them)
     if 'Survivor BP' in model_info.get('feature_names', []):
         survivor_bp = float(data.get('survivor_bp', 0))
         features.append(survivor_bp)
@@ -160,19 +168,26 @@ def build_feature_vector(data, model_info):
 @app.route('/predict', methods=['POST'])
 def predict():
     """Handle prediction requests"""
-    if model is None or scaler is None:
-        return jsonify({'error': 'Model not loaded. Please train and save the model first.'}), 500
-    
     try:
         # Get form data
         data = request.get_json()
         
-        # Load model info to get feature names
-        try:
-            with open('model_info.pkl', 'rb') as f:
-                model_info = pickle.load(f)
-        except:
-            model_info = {}
+        # Determine which model to use (default to with_bp)
+        use_bp = data.get('model_type', 'with_bp') == 'with_bp'
+        
+        # Select appropriate model, scaler, and model_info
+        if use_bp:
+            model = model_with_bp
+            scaler = scaler_with_bp
+            model_info = model_info_with_bp
+        else:
+            model = model_no_bp
+            scaler = scaler_no_bp
+            model_info = model_info_no_bp
+        
+        if model is None or scaler is None or model_info is None:
+            model_type = "with BP" if use_bp else "without BP"
+            return jsonify({'error': f'Model {model_type} not loaded. Please train and save the model first.'}), 500
         
         # Build feature vector
         features = build_feature_vector(data, model_info)
@@ -205,7 +220,8 @@ def predict():
         return jsonify({
             'escape_chance': round(escape_chance, 2),
             'will_escape': will_escape,
-            'probability': round(probability, 4)
+            'probability': round(probability, 4),
+            'model_type': 'with_bp' if use_bp else 'no_bp'
         })
     
     except Exception as e:
