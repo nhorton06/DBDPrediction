@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import pickle
 import os
+import copy
 
 # Model architecture (must match app.py)
 class DBDModel(nn.Module):
@@ -253,39 +254,53 @@ def train_model(csv_path='DBDData.csv', output_dir='/app'):
     print(f"   Final dataset size: {len(X)} rows, {X.shape[1]} features")
     print(f"   Class distribution: {np.bincount(y.astype(int))}")
     
-    # Train/test split
-    print("\n[3/7] Splitting data into train/test sets...")
-    X_train, X_test, y_train, y_test = train_test_split(
+    # Train/validation/test split
+    print("\n[3/7] Splitting data into train/validation/test sets...")
+    # First split: 80% train+val, 20% test
+    X_temp, X_test, y_temp, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )
+    # Second split: 80% train, 20% validation (of the 80%)
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_temp, y_temp, test_size=0.2, random_state=42, stratify=y_temp
+    )
     print(f"   Training samples: {len(X_train)}")
+    print(f"   Validation samples: {len(X_val)}")
     print(f"   Test samples: {len(X_test)}")
     
     # Standardize features
     print("\n[4/7] Standardizing features...")
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
+    X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
     
     # Convert to tensors
     X_train_tensor = torch.FloatTensor(X_train)
     y_train_tensor = torch.FloatTensor(y_train)
+    X_val_tensor = torch.FloatTensor(X_val)
+    y_val_tensor = torch.FloatTensor(y_val)
     X_test_tensor = torch.FloatTensor(X_test)
     
     # Create data loaders
     print("\n[5/7] Creating data loaders...")
     Hidden_size = 64
-    Epochs = 15
+    Epochs = 100  # High max epoch count for scalability
     Batch_size = 32
     Learning_rate = 0.001
+    Patience = 5  # Early stopping patience (conservative for smaller datasets to prevent overfitting)
     
     training_data = TrainingData(X_train_tensor, y_train_tensor)
     train_loader = DataLoader(dataset=training_data, batch_size=Batch_size)
     
+    validation_data = TrainingData(X_val_tensor, y_val_tensor)
+    val_loader = DataLoader(dataset=validation_data, batch_size=Batch_size)
+    
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"   Using device: {device}")
     print(f"   Hidden size: {Hidden_size}")
-    print(f"   Epochs: {Epochs}")
+    print(f"   Max epochs: {Epochs}")
+    print(f"   Early stopping patience: {Patience}")
     print(f"   Batch size: {Batch_size}")
     
     # Initialize model
@@ -297,14 +312,22 @@ def train_model(csv_path='DBDData.csv', output_dir='/app'):
     criterion = nn.BCEWithLogitsLoss()
     optimizer = Adam(model.parameters(), lr=Learning_rate)
     
-    # Train model
-    print("\n[7/7] Training model...")
+    # Train model with early stopping
+    print("\n[7/7] Training model with early stopping...")
     print("-" * 60)
-    model.train()
+    
+    # Early stopping variables
+    best_val_loss = float('inf')
+    best_model_state = None
+    patience_counter = 0
+    
     for e in range(1, Epochs + 1):
+        # Training phase
+        model.train()
         epoch_loss = 0
         epoch_accuracy = 0
         valid_batches = 0
+        
         for X_batch, y_batch in train_loader:
             X_batch, y_batch = X_batch.to(device), y_batch.to(device)
             optimizer.zero_grad()
@@ -331,12 +354,55 @@ def train_model(csv_path='DBDData.csv', output_dir='/app'):
             print(f"ERROR: No valid batches in epoch {e}. Training failed.")
             return False
         
-        avg_loss = epoch_loss / valid_batches
-        avg_accuracy = epoch_accuracy / valid_batches
-        print(f'Epoch {e:03d}: | Loss: {avg_loss:.5f} | Accuracy: {avg_accuracy:.3f}%')
+        avg_train_loss = epoch_loss / valid_batches
+        avg_train_accuracy = epoch_accuracy / valid_batches
+        
+        # Validation phase
+        model.eval()
+        val_loss = 0
+        val_accuracy = 0
+        val_batches = 0
+        
+        with torch.no_grad():
+            for X_batch, y_batch in val_loader:
+                X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+                y_pred = model(X_batch)
+                loss = criterion(y_pred, y_batch.unsqueeze(1))
+                accuracy = binary_accuracy(y_pred, y_batch.unsqueeze(1))
+                
+                val_loss += loss.item()
+                val_accuracy += accuracy.item()
+                val_batches += 1
+        
+        avg_val_loss = val_loss / val_batches
+        avg_val_accuracy = val_accuracy / val_batches
+        
+        # Early stopping logic
+        if avg_val_loss < best_val_loss:
+            best_val_loss = avg_val_loss
+            best_model_state = copy.deepcopy(model.state_dict())
+            patience_counter = 0
+            improvement = "✓"
+        else:
+            patience_counter += 1
+            improvement = ""
+        
+        print(f'Epoch {e:03d}: | Train Loss: {avg_train_loss:.5f} | Train Acc: {avg_train_accuracy:.3f}% | Val Loss: {avg_val_loss:.5f} | Val Acc: {avg_val_accuracy:.3f}% {improvement}')
+        
+        # Early stopping check
+        if patience_counter >= Patience:
+            print(f"\n   Early stopping triggered! No improvement for {Patience} epochs.")
+            print(f"   Best validation loss: {best_val_loss:.5f}")
+            print(f"   Restoring best model from epoch {e - Patience}...")
+            break
+    
+    # Restore best model
+    if best_model_state is not None:
+        model.load_state_dict(best_model_state)
+        print(f"   Best model restored (validation loss: {best_val_loss:.5f})")
     
     print("-" * 60)
-    print("Training complete!")
+    print(f"Training complete after {e} epochs!")
     
     # Save model files
     print(f"\nSaving model files to {output_dir}...")
