@@ -182,21 +182,6 @@ python run_local.py
 
 The app will start on `http://127.0.0.1:5000` (or `http://localhost:5000`).
 
-**Alternative: Run Directly (Not Recommended):**
-
-If you prefer to run directly, you must be in the project root directory:
-
-```bash
-# Make sure you're in the project root
-cd /path/to/DBDPrediction
-
-# Set environment variable
-export FLASK_APP=src/app.py  # On Windows: set FLASK_APP=src/app.py
-
-# Run Flask
-python -m flask run --debug
-```
-
 **Important Notes for Local Development:**
 
 - Models must be trained before running the app (use `python src/train_model.py`)
