@@ -318,21 +318,36 @@ docker-compose up -d
 ```
 DBDPrediction/
 ├── src/                    # Application source code
-│   ├── app.py             # Flask web application
-│   ├── train_model.py     # Model training script
+│   ├── app.py             # Flask web application (loads both models, handles predictions)
+│   ├── train_model.py     # Model training script (trains both with_bp and no_bp models)
 │   └── save_model.py      # Model saving utility
 ├── tests/                  # Unit and smoke tests
 │   ├── test_api.py        # API endpoint tests
 │   └── test_model.py      # Model architecture tests
 ├── templates/              # HTML templates
-│   └── index.html         # Main web interface
+│   └── index.html         # Main web interface (includes model toggle switch)
 ├── assets/                 # Images and static assets
-├── DBDData.csv            # Training data (not in repo)
+│   ├── dbd-logo.png       # Dead by Daylight logo
+│   ├── icon.png           # Favicon
+│   ├── escaped.png        # Escape outcome image
+│   ├── sacrificed.png     # Sacrifice outcome image
+│   ├── *.png              # Various UI icons (steam, anonymous, prestige, items, perks, etc.)
+├── DBDData.csv            # Training data (included in Docker image, not in repo)
 ├── Dockerfile             # Docker image definition
 ├── docker-compose.yml     # Docker Compose configuration
 ├── requirements.txt       # Python dependencies
-└── start.sh              # Container startup script
+├── start.sh              # Container startup script (trains models, then starts Flask)
+├── README.md             # Project documentation
+└── CREDITS.md            # Attribution for game assets and third-party resources
 ```
+
+**Generated Model Files** (created at runtime, not in repo):
+- `dbd_model_with_bp.pth` - PyTorch model weights (with bloodpoints)
+- `dbd_model_no_bp.pth` - PyTorch model weights (without bloodpoints)
+- `scaler_with_bp.pkl` - Feature scaler (with bloodpoints)
+- `scaler_no_bp.pkl` - Feature scaler (without bloodpoints)
+- `model_info_with_bp.pkl` - Model metadata (with bloodpoints)
+- `model_info_no_bp.pkl` - Model metadata (without bloodpoints)
 
 ### Planned Improvements
 
