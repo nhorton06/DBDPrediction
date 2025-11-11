@@ -39,23 +39,18 @@ COPY DBDData.csv ./
 # Convert line endings and make startup script executable
 RUN dos2unix start.sh && chmod +x start.sh
 
-# Pre-train models during build to avoid startup delays
-# This ensures models are ready immediately when container starts
-RUN echo "Training models during Docker build..." && \
-    TRAINING_CSV=/app/DBDData.csv MODEL_OUTPUT_DIR=/app python train_model.py && \
-    echo "Models trained successfully!"
-
-# Note: Models are now pre-trained in the image for faster startup
+# Note: Models are NOT pre-trained during build
+# Models will be trained on every container startup to ensure they use the latest data
+# This allows updating DBDData.csv and having models automatically retrain with new data
 # DBDData.csv is included in the image, but can be overridden via volume mount or environment variable
-# If models don't exist at startup, start.sh will train them (for local development with custom CSV)
 
 # Expose port
 EXPOSE 5000
 
-# Health check (reduced start period since models are pre-trained)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+# Health check (longer start period to allow for model training on startup)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health').read()" || exit 1
 
-# Run startup script (will skip training if models exist, then starts Flask)
+# Run startup script (always trains models on startup, then starts Flask)
 CMD ["/bin/bash", "./start.sh"]
 

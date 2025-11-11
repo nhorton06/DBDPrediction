@@ -22,5 +22,5 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s  # Reduced since models are pre-trained during build
+      start_period: 300s  # Longer period to allow for model training on startup (2-5 minutes)
 

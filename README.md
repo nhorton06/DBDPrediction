@@ -229,9 +229,47 @@ docker-compose build
 docker-compose up -d
 ```
 
-**Note**: Models are pre-trained during the Docker build phase (takes 2-5 minutes), so container startup is fast (<10 seconds). The web interface includes a toggle switch to select between the "With Bloodpoints" and "Without Bloodpoints" models.
+**Note**: Models are trained on every container startup (takes 2-5 minutes) to ensure they use the latest data. This allows you to update `DBDData.csv` and have the models automatically retrain with the new data. The web interface includes a toggle switch to select between the "With Bloodpoints" and "Without Bloodpoints" models.
 
 **For Local Python Development**: Models must be trained manually using `python src/train_model.py` before running the app. See the "Local Python Development" section above for details.
+
+### Updating Docker Hub Image
+
+To update the Docker Hub image with the latest changes:
+
+```bash
+# Build the image
+docker build -t h2x0/dbd-predictor:latest .
+
+# Push to Docker Hub
+docker push h2x0/dbd-predictor:latest
+```
+
+**Note**: The image is available at `h2x0/dbd-predictor:latest` on Docker Hub.
+
+### Cloud Deployment (Render)
+
+The project includes a `render.yaml` configuration file for easy deployment to Render:
+
+**1. Deploy to Render:**
+
+- Connect your GitHub repository to Render
+- Render will automatically detect `render.yaml` and deploy the service
+- The service will train models on startup (takes 2-5 minutes)
+
+**2. Updating Data on Render:**
+
+To update the training data (`DBDData.csv`) on Render:
+
+- **Option A**: Update `DBDData.csv` in your repository and push to GitHub. Render will automatically redeploy, and models will retrain with the new data.
+- **Option B**: Use Render's environment variables or file system to update the CSV file, then trigger a manual redeploy.
+
+**Important Notes for Render Deployment:**
+
+- Models train on every deployment/startup (2-5 minutes)
+- Health check start period is set to 300 seconds (5 minutes) to allow for training
+- Ensure your Render plan has sufficient resources for model training
+- The `DBDData.csv` file is included in the Docker image, but you can override it via environment variables or file mounts
 
 ## 4) Design Decisions
 
@@ -306,11 +344,12 @@ docker-compose up -d
 - GPU: Not currently used (CPU-only PyTorch)
 
 **Known Limitations**:
-1. Both models train on every container startup (adds ~60-120 seconds to startup time)
+1. Both models train on every container startup (adds ~2-5 minutes to startup time) - this is intentional to ensure models use the latest data
 2. No database persistence (stateless predictions only)
 3. Single-threaded Flask server (not production-grade for high traffic)
 4. No authentication/authorization (suitable for local use only)
 5. Training data can be provided via volume mount (`DBDData.csv`) or is included in Docker Hub image
+6. **Note**: To update models with new data, simply update `DBDData.csv` and redeploy - models will automatically retrain on startup
 
 ## 5) Results & Evaluation
 
@@ -379,10 +418,11 @@ docker-compose up -d
 - Network latency: Minimal (local deployment)
 
 **Resource Usage**:
-- Container startup: ~60-120 seconds (includes training both models)
+- Container startup: ~2-5 minutes (includes training both models on every startup)
 - Training time: ~30-90 seconds per model (varies with early stopping, max 100 epochs)
 - Memory footprint: ~500 MB base + model size (both models loaded in memory)
 - Disk I/O: Minimal (models loaded once after training)
+- **Note**: Models train on every startup to ensure they use the latest data from `DBDData.csv`
 
 ### Validation/Tests
 
@@ -427,6 +467,7 @@ DBDPrediction/
 ├── DBDData.csv            # Training data (included in Docker image, not in repo)
 ├── Dockerfile             # Docker image definition
 ├── docker-compose.yml     # Docker Compose configuration
+├── render.yaml           # Render cloud deployment configuration
 ├── requirements.txt       # Python dependencies
 ├── run_local.py          # Local development runner (sets up paths, runs Flask)
 ├── start.sh              # Container startup script (trains models, then starts Flask)
@@ -458,7 +499,9 @@ DBDPrediction/
    - **Perk Validation**: Enforced 4-perk limit validation on both frontend and backend
    - **Dual Model Support**: Added toggle to switch between models with/without bloodpoint features
    - **Early Stopping**: Implemented early stopping (max 100 epochs, patience 5) for better generalization
-   - **Docker Hub Deployment**: Image available at `h2x0/dbd-predictor:latest` with pre-trained models
+   - **Docker Hub Deployment**: Image available at `h2x0/dbd-predictor:latest` (models train on startup)
+   - **Cloud Deployment**: `render.yaml` configuration included for easy Render deployment
+   - **Automatic Model Retraining**: Models automatically retrain on every deployment to use latest data
    - Added comprehensive perk support (exhaustion, chase, other perks)
    - Added map type and powerful add-ons features
    - Organized UI into categorized sections with model selection toggle
@@ -476,5 +519,7 @@ DBDPrediction/
 ## 7) Links (Required)
 
 **GitHub Repo**: https://github.com/nhorton06/DBDPrediction
+
+**Public Cloud App**: https://dbd-calculator.onrender.com/
 
 **Credits & Attribution**: See [CREDITS.md](CREDITS.md) for attribution of game assets and third-party resources.
