@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: dbd-predictor
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter  # or free, starter, standard, pro
+    region: oregon  # or any other Render region
+    healthCheckPath: /health
+    envVars:
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_APP
+        value: app.py
+      - key: FLASK_HOST
+        value: 0.0.0.0
+      - key: FLASK_PORT
+        value: 5000
+      - key: TRAINING_CSV
+        value: /app/DBDData.csv
+      - key: MODEL_OUTPUT_DIR
+        value: /app
+

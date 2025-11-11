@@ -76,8 +76,16 @@ def load_model(include_bp=True):
         return None, None, None
 
 # Load both models on startup
+print("Loading models...")
 model_with_bp, scaler_with_bp, model_info_with_bp = load_model(include_bp=True)
 model_no_bp, scaler_no_bp, model_info_no_bp = load_model(include_bp=False)
+
+if model_with_bp is None:
+    print("WARNING: Model with BP failed to load")
+if model_no_bp is None:
+    print("WARNING: Model without BP failed to load")
+if model_with_bp is not None and model_no_bp is not None:
+    print("Both models loaded successfully!")
 
 @app.route('/')
 def index():
@@ -87,11 +95,23 @@ def index():
 @app.route('/health')
 def health():
     """Health check endpoint for Docker and monitoring"""
+    # Check if models are loaded
+    with_bp_loaded = model_with_bp is not None and scaler_with_bp is not None and model_info_with_bp is not None
+    no_bp_loaded = model_no_bp is not None and scaler_no_bp is not None and model_info_no_bp is not None
+    
+    # Return 200 if at least one model is loaded, 503 if neither
+    if with_bp_loaded or no_bp_loaded:
+        status_code = 200
+        status = 'healthy'
+    else:
+        status_code = 503
+        status = 'unhealthy'
+    
     return jsonify({
-        'status': 'healthy',
-        'model_with_bp_loaded': model_with_bp is not None and scaler_with_bp is not None,
-        'model_no_bp_loaded': model_no_bp is not None and scaler_no_bp is not None
-    }), 200
+        'status': status,
+        'model_with_bp_loaded': with_bp_loaded,
+        'model_no_bp_loaded': no_bp_loaded
+    }), status_code
 
 def build_feature_vector(data, model_info):
     """Build feature vector in the same order as training"""
