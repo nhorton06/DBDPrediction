@@ -469,6 +469,7 @@ To update the training data (`DBDData.csv`) on Render:
    - **Docker Hub Deployment**: Image available at `h2x0/dbd-predictor:latest` (models train on startup)
    - **Cloud Deployment**: `render.yaml` configuration included for easy Render deployment, available at link near bottom of page
    - **Automatic Model Retraining**: Models automatically retrain on every deployment to use latest data
+   - **Map Assistance**: Makes it easier to find map by adding realm and map options/dropdowns which will then autofill the remaining fields (type and area) and moving tooltip to section header instead of next to map area
    - Added map type and powerful add-ons features
    - Organized UI into categorized sections with model selection toggle
    - Enhanced interface with icons for better UX

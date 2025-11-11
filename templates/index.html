@@ -347,6 +347,95 @@
             padding: 10px;
         }
         
+        /* Autocomplete styles */
+        .autocomplete-wrapper {
+            position: relative;
+            width: 100%;
+        }
+        
+        .autocomplete-wrapper input[type="text"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #3a0000;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: all 0.3s;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            font-family: 'Roboto', sans-serif;
+            box-sizing: border-box;
+            min-height: 48px;
+        }
+        
+        .autocomplete-wrapper input[type="text"]:focus {
+            outline: none;
+            border-color: #8b0000;
+            box-shadow: 
+                0 0 10px rgba(139, 0, 0, 0.5),
+                inset 0 0 10px rgba(139, 0, 0, 0.1);
+            background: #252525;
+        }
+        
+        .autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1a1a1a;
+            border: 2px solid #8b0000;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+        }
+        
+        .autocomplete-dropdown.show {
+            display: block;
+        }
+        
+        .autocomplete-item {
+            padding: 6px 15px;
+            cursor: pointer;
+            color: #e0e0e0;
+            border-bottom: 1px solid rgba(139, 0, 0, 0.3);
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        
+        .autocomplete-item:last-child {
+            border-bottom: none;
+        }
+        
+        .autocomplete-item:hover,
+        .autocomplete-item.highlighted {
+            background: #2a0000;
+            color: #ff4444;
+        }
+        
+        .autocomplete-item.no-results {
+            cursor: default;
+            color: #888;
+            font-style: italic;
+            display: block;
+        }
+        
+        .autocomplete-item.no-results:hover {
+            background: #1a1a1a;
+            color: #888;
+        }
+        
+        .autocomplete-icon {
+            width: 60px;
+            height: 60px;
+            margin-right: 12px;
+            flex-shrink: 0;
+            object-fit: contain;
+        }
+        
         .form-section {
             margin-bottom: 30px;
             padding: 20px;
@@ -366,6 +455,19 @@
             text-transform: uppercase;
             letter-spacing: 2px;
             text-shadow: 0 0 10px rgba(255, 26, 26, 0.6);
+        }
+        
+        .form-section-title .info-icon {
+            font-family: 'Roboto', sans-serif;
+            text-transform: none;
+            letter-spacing: normal;
+            font-weight: bold;
+        }
+        
+        .form-section-title .info-icon .tooltip {
+            font-family: 'Roboto', sans-serif;
+            text-transform: none;
+            letter-spacing: normal;
         }
         
         .form-row {
@@ -814,11 +916,50 @@
             
             <!-- Map Information Section -->
             <div class="form-section">
-                <h2 class="form-section-title">Map Information</h2>
+                <h2 class="form-section-title">
+                    Map Information
+                    <span class="info-icon">?
+                        <span class="tooltip compact">
+                            See realms and maps: <a href="https://deadbydaylight.fandom.com/wiki/Realms" target="_blank">https://deadbydaylight.fandom.com/wiki/Realms</a>
+                        </span>
+                    </span>
+                </h2>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="realm">
+                            Realm
+                            <span class="info-icon">?
+                                <span class="tooltip compact">
+                                    Type to search for a realm. This will help filter the map selection.
+                                </span>
+                            </span>
+                        </label>
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="realm" name="realm" autocomplete="off" placeholder="Type to search realms..." />
+                            <input type="hidden" id="realm_value" name="realm_value" />
+                            <div class="autocomplete-dropdown" id="realm_dropdown"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="map_name">
+                            Map Name
+                            <span class="info-icon">?
+                                <span class="tooltip compact">
+                                    Type to search for a map. Selecting a map will automatically set map type and area.
+                                </span>
+                            </span>
+                        </label>
+                        <div class="autocomplete-wrapper">
+                            <input type="text" id="map_name" name="map_name" autocomplete="off" placeholder="Type to search maps..." />
+                            <input type="hidden" id="map_name_value" name="map_name_value" />
+                            <div class="autocomplete-dropdown" id="map_name_dropdown"></div>
+                        </div>
+                    </div>
+                </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="map_type">
-                            <img src="/assets/map.png" alt="Map" class="icon">
                             Map Type
                         </label>
                         <select id="map_type" name="map_type" required>
@@ -831,11 +972,6 @@
                     <div class="form-group">
                         <label for="map_area">
                             Map Area (m²)
-                            <span class="info-icon">?
-                                <span class="tooltip compact">
-                                    See for exact areas: <a href="https://deadbydaylight.fandom.com/wiki/Realms" target="_blank">https://deadbydaylight.fandom.com/wiki/Realms</a>
-                                </span>
-                            </span>
                         </label>
                         <input type="number" id="map_area" name="map_area" min="0" step="0.01" placeholder="Enter area in square meters" required>
                     </div>
@@ -1150,8 +1286,462 @@
         updatePerkValidation();
         
         // Map area validation
-        const indoorMapAreas = [10000, 9088, 8832, 7264, 6272];
+        const indoorMapAreas = [11000, 10000, 9088, 8832, 7264, 6272];
         const outdoorMapAreas = [11264, 11008, 10752, 10496, 10304, 10240, 9984, 9728, 9472, 9216, 8960, 8704, 8448];
+        
+        // Realm to maps mapping
+        const realmToMaps = {
+            "The MacMillan Estate": [
+                { name: "Coal Tower", fullName: "The MacMillan Estate - Coal Tower", area: 8448 },
+                { name: "Groaning Storehouse", fullName: "The MacMillan Estate - Groaning Storehouse", area: 9984 },
+                { name: "Ironworks of Misery", fullName: "The MacMillan Estate - Ironworks of Misery", area: 10240 },
+                { name: "Shelter Woods", fullName: "The MacMillan Estate - Shelter Woods", area: 11264 },
+                { name: "Suffocation Pit", fullName: "The MacMillan Estate - Suffocation Pit", area: 10240 }
+            ],
+            "Autohaven Wreckers": [
+                { name: "Azarov's Resting Place", fullName: "Autohaven Wreckers - Azarov's Resting Place", area: 11264 },
+                { name: "Blood Lodge", fullName: "Autohaven Wreckers - Blood Lodge", area: 9984 },
+                { name: "Gas Heaven", fullName: "Autohaven Wreckers - Gas Heaven", area: 9984 },
+                { name: "Wreckers' Yard", fullName: "Autohaven Wreckers - Wreckers' Yard", area: 9216 },
+                { name: "Wretched Shop", fullName: "Autohaven Wreckers - Wretched Shop", area: 10496 }
+            ],
+            "Coldwind Farm": [
+                { name: "Fractured Cowshed", fullName: "Coldwind Farm - Fractured Cowshed", area: 9728 },
+                { name: "Rancid Abattoir", fullName: "Coldwind Farm - Rancid Abattoir", area: 8960 },
+                { name: "Rotten Fields", fullName: "Coldwind Farm - Rotten Fields", area: 10240 },
+                { name: "The Thompson House", fullName: "Coldwind Farm - The Thompson House", area: 9728 },
+                { name: "Torment Creek", fullName: "Coldwind Farm - Torment Creek", area: 10752 }
+            ],
+            "Crotus Prenn Asylum": [
+                { name: "Disturbed Ward", fullName: "Crotus Prenn Asylum - Disturbed Ward", area: 11008 },
+                { name: "Father Campbell's Chapel", fullName: "Crotus Prenn Asylum - Father Campbell's Chapel", area: 8960 }
+            ],
+            "Haddonfield": [
+                { name: "Lampkin Lane", fullName: "Haddonfield - Lampkin Lane", area: 8448 }
+            ],
+            "Backwater Swamp": [
+                { name: "The Pale Rose", fullName: "Backwater Swamp - The Pale Rose", area: 10304 },
+                { name: "Grim Pantry", fullName: "Backwater Swamp - Grim Pantry", area: 10752 }
+            ],
+            "Red Forest": [
+                { name: "Mother's Dwelling", fullName: "Red Forest - Mother's Dwelling", area: 9728 },
+                { name: "The Temple of Purgation", fullName: "Red Forest - The Temple of Purgation", area: 8704 }
+            ],
+            "Springwood": [
+                { name: "Badham Preschool I", fullName: "Springwood - Badham Preschool I", area: 9216 }
+            ],
+            "Yamaoka Estate": [
+                { name: "Family Residence", fullName: "Yamaoka Estate - Family Residence", area: 9984 },
+                { name: "Sanctum of Wrath", fullName: "Yamaoka Estate - Sanctum of Wrath", area: 9984 }
+            ],
+            "Ormond": [
+                { name: "Mount Ormond Resort", fullName: "Ormond - Mount Ormond Resort", area: 9984 },
+                { name: "Ormond Lake Mine", fullName: "Ormond - Ormond Lake Mine", area: 8448 }
+            ],
+            "Grave of Glenvale": [
+                { name: "Dead Dawg Saloon", fullName: "Grave of Glenvale - Dead Dawg Saloon", area: 8704 }
+            ],
+            "Forsaken Boneyard": [
+                { name: "Dead Sands", fullName: "Forsaken Boneyard - Dead Sands", area: 8960 },
+                { name: "Eyrie of Crows", fullName: "Forsaken Boneyard - Eyrie of Crows", area: 9472 }
+            ],
+            "Withered Isle": [
+                { name: "Garden of Joy", fullName: "Withered Isle - Garden of Joy", area: 10496 },
+                { name: "Greenville Square", fullName: "Withered Isle - Greenville Square", area: 10240 },
+                { name: "Freddy Fazbear's Pizza", fullName: "Withered Isle - Freddy Fazbear's Pizza", area: 9984 },
+                { name: "Fallen Refuge", fullName: "Withered Isle - Fallen Refuge", area: 8704 }
+            ],
+            "The Decimated Borgo": [
+                { name: "The Shattered Square", fullName: "The Decimated Borgo - The Shattered Square", area: 9216 },
+                { name: "Forgotten Ruins", fullName: "The Decimated Borgo - Forgotten Ruins", area: 8448 }
+            ],
+            "Dvarka Deepwood": [
+                { name: "Toba Landing", fullName: "Dvarka Deepwood - Toba Landing", area: 8704 },
+                { name: "Nostromo Wreckage", fullName: "Dvarka Deepwood - Nostromo Wreckage", area: 9728 }
+            ],
+            "Léry's Memorial Institute": [
+                { name: "Treatment Theatre", fullName: "Léry's Memorial Institute - Treatment Theatre", area: 6272 }
+            ],
+            "Gideon Meat Plant": [
+                { name: "The Game", fullName: "Gideon Meat Plant - The Game", area: 9088 }
+            ],
+            "Hawkins National Laboratory": [
+                { name: "The Underground Complex", fullName: "Hawkins National Laboratory - The Underground Complex", area: 8832 }
+            ],
+            "Silent Hill": [
+                { name: "Midwich Elementary School", fullName: "Silent Hill - Midwich Elementary School", area: 7264 }
+            ],
+            "Raccoon City": [
+                { name: "Raccoon City Police Station East Wing", fullName: "Raccoon City - Raccoon City Police Station East Wing", area: 10000 },
+                { name: "Raccoon City Police Station West Wing", fullName: "Raccoon City - Raccoon City Police Station West Wing", area: 11000 }
+            ]
+        };
+        
+        // Map name to type and area mapping (for backward compatibility and auto-fill)
+        const mapNameToData = {
+            "The MacMillan Estate - Coal Tower": { type: 'Outdoor', area: 8448 },
+            "The MacMillan Estate - Groaning Storehouse": { type: 'Outdoor', area: 9984 },
+            "The MacMillan Estate - Ironworks of Misery": { type: 'Outdoor', area: 10240 },
+            "The MacMillan Estate - Shelter Woods": { type: 'Outdoor', area: 11264 },
+            "The MacMillan Estate - Suffocation Pit": { type: 'Outdoor', area: 10240 },
+            "Autohaven Wreckers - Azarov's Resting Place": { type: 'Outdoor', area: 11264 },
+            "Autohaven Wreckers - Blood Lodge": { type: 'Outdoor', area: 9984 },
+            "Autohaven Wreckers - Gas Heaven": { type: 'Outdoor', area: 9984 },
+            "Autohaven Wreckers - Wreckers' Yard": { type: 'Outdoor', area: 9216 },
+            "Autohaven Wreckers - Wretched Shop": { type: 'Outdoor', area: 10496 },
+            "Coldwind Farm - Fractured Cowshed": { type: 'Outdoor', area: 9728 },
+            "Coldwind Farm - Rancid Abattoir": { type: 'Outdoor', area: 8960 },
+            "Coldwind Farm - Rotten Fields": { type: 'Outdoor', area: 10240 },
+            "Coldwind Farm - The Thompson House": { type: 'Outdoor', area: 9728 },
+            "Coldwind Farm - Torment Creek": { type: 'Outdoor', area: 10752 },
+            "Crotus Prenn Asylum - Disturbed Ward": { type: 'Outdoor', area: 11008 },
+            "Crotus Prenn Asylum - Father Campbell's Chapel": { type: 'Outdoor', area: 8960 },
+            "Haddonfield - Lampkin Lane": { type: 'Outdoor', area: 8448 },
+            "Backwater Swamp - The Pale Rose": { type: 'Outdoor', area: 10304 },
+            "Backwater Swamp - Grim Pantry": { type: 'Outdoor', area: 10752 },
+            "Red Forest - Mother's Dwelling": { type: 'Outdoor', area: 9728 },
+            "Red Forest - The Temple of Purgation": { type: 'Outdoor', area: 8704 },
+            "Springwood - Badham Preschool I": { type: 'Outdoor', area: 9216 },
+            "Yamaoka Estate - Family Residence": { type: 'Outdoor', area: 9984 },
+            "Yamaoka Estate - Sanctum of Wrath": { type: 'Outdoor', area: 9984 },
+            "Ormond - Mount Ormond Resort": { type: 'Outdoor', area: 9984 },
+            "Ormond - Ormond Lake Mine": { type: 'Outdoor', area: 8448 },
+            "Grave of Glenvale - Dead Dawg Saloon": { type: 'Outdoor', area: 8704 },
+            "Forsaken Boneyard - Dead Sands": { type: 'Outdoor', area: 8960 },
+            "Forsaken Boneyard - Eyrie of Crows": { type: 'Outdoor', area: 9472 },
+            "Withered Isle - Garden of Joy": { type: 'Outdoor', area: 10496 },
+            "Withered Isle - Greenville Square": { type: 'Outdoor', area: 10240 },
+            "Withered Isle - Freddy Fazbear's Pizza": { type: 'Outdoor', area: 9984 },
+            "Withered Isle - Fallen Refuge": { type: 'Outdoor', area: 8704 },
+            "The Decimated Borgo - The Shattered Square": { type: 'Outdoor', area: 9216 },
+            "The Decimated Borgo - Forgotten Ruins": { type: 'Outdoor', area: 8448 },
+            "Dvarka Deepwood - Toba Landing": { type: 'Outdoor', area: 8704 },
+            "Dvarka Deepwood - Nostromo Wreckage": { type: 'Outdoor', area: 9728 },
+            "Léry's Memorial Institute - Treatment Theatre": { type: 'Indoor', area: 6272 },
+            "Gideon Meat Plant - The Game": { type: 'Indoor', area: 9088 },
+            "Hawkins National Laboratory - The Underground Complex": { type: 'Indoor', area: 8832 },
+            "Silent Hill - Midwich Elementary School": { type: 'Indoor', area: 7264 },
+            "Raccoon City - Raccoon City Police Station East Wing": { type: 'Indoor', area: 10000 },
+            "Raccoon City - Raccoon City Police Station West Wing": { type: 'Indoor', area: 11000 }
+        };
+        
+        // Realm icon mapping
+        const realmIcons = {
+            "The MacMillan Estate": "macmillan.png",
+            "Autohaven Wreckers": "autohaven.png",
+            "Coldwind Farm": "coldwind.png",
+            "Crotus Prenn Asylum": "crotus.png",
+            "Haddonfield": "haddonfield.png",
+            "Backwater Swamp": "backwater.png",
+            "Red Forest": "forest.png",
+            "Springwood": "springwood.png",
+            "Yamaoka Estate": "yamaoka.png",
+            "Ormond": "ormond.png",
+            "Grave of Glenvale": "glenvale.png",
+            "Forsaken Boneyard": "boneyard.png",
+            "Withered Isle": "withered.png",
+            "The Decimated Borgo": "borgo.png",
+            "Dvarka Deepwood": "dvarka.png",
+            "Léry's Memorial Institute": "lerys.png",
+            "Gideon Meat Plant": "gideon.png",
+            "Hawkins National Laboratory": "hawkins.png",
+            "Silent Hill": "silenthill.png",
+            "Raccoon City": "raccoon.png"
+        };
+        
+        // Get all realm names
+        const allRealms = Object.keys(realmIcons);
+        
+        // Autocomplete function for realm
+        function setupRealmAutocomplete() {
+            const realmInput = document.getElementById('realm');
+            const realmDropdown = document.getElementById('realm_dropdown');
+            const realmValue = document.getElementById('realm_value');
+            let selectedIndex = -1;
+            
+            if (!realmInput || !realmDropdown) return;
+            
+            function filterRealms(query) {
+                if (!query) return allRealms;
+                const lowerQuery = query.toLowerCase();
+                return allRealms.filter(realm => 
+                    realm.toLowerCase().includes(lowerQuery)
+                );
+            }
+            
+            function showDropdown(results) {
+                realmDropdown.innerHTML = '';
+                if (results.length === 0) {
+                    const item = document.createElement('div');
+                    item.className = 'autocomplete-item no-results';
+                    item.textContent = 'No realms found';
+                    realmDropdown.appendChild(item);
+                } else {
+                    results.forEach((realm, index) => {
+                        const item = document.createElement('div');
+                        item.className = 'autocomplete-item';
+                        item.dataset.value = realm;
+                        
+                        // Add icon if available
+                        if (realmIcons[realm]) {
+                            const icon = document.createElement('img');
+                            icon.src = `/assets/${realmIcons[realm]}`;
+                            icon.className = 'autocomplete-icon';
+                            icon.alt = realm;
+                            item.appendChild(icon);
+                        }
+                        
+                        const text = document.createTextNode(realm);
+                        item.appendChild(text);
+                        item.addEventListener('click', () => selectRealm(realm));
+                        realmDropdown.appendChild(item);
+                    });
+                }
+                realmDropdown.classList.add('show');
+                selectedIndex = -1;
+            }
+            
+            function selectRealm(realm) {
+                realmInput.value = realm;
+                realmValue.value = realm;
+                realmDropdown.classList.remove('show');
+                
+                // Clear and update map autocomplete
+                const mapInput = document.getElementById('map_name');
+                const mapValue = document.getElementById('map_name_value');
+                if (mapInput) {
+                    mapInput.value = '';
+                    if (mapValue) mapValue.value = '';
+                }
+                
+                // Trigger realm change for map autocomplete
+                const event = new Event('realmChanged');
+                realmValue.dispatchEvent(event);
+            }
+            
+            realmInput.addEventListener('input', function() {
+                const query = this.value;
+                const results = filterRealms(query);
+                showDropdown(results);
+            });
+            
+            realmInput.addEventListener('focus', function() {
+                const query = this.value;
+                const results = filterRealms(query);
+                showDropdown(results);
+            });
+            
+            realmInput.addEventListener('keydown', function(e) {
+                const items = realmDropdown.querySelectorAll('.autocomplete-item:not(.no-results)');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                    items.forEach((item, i) => {
+                        item.classList.toggle('highlighted', i === selectedIndex);
+                    });
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, -1);
+                    items.forEach((item, i) => {
+                        item.classList.toggle('highlighted', i === selectedIndex);
+                    });
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedIndex >= 0 && items[selectedIndex]) {
+                        selectRealm(items[selectedIndex].dataset.value);
+                    }
+                } else if (e.key === 'Escape') {
+                    realmDropdown.classList.remove('show');
+                }
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!realmInput.contains(e.target) && !realmDropdown.contains(e.target)) {
+                    realmDropdown.classList.remove('show');
+                }
+            });
+        }
+        
+        // Autocomplete function for maps
+        function setupMapAutocomplete() {
+            const mapInput = document.getElementById('map_name');
+            const mapDropdown = document.getElementById('map_name_dropdown');
+            const mapValue = document.getElementById('map_name_value');
+            let selectedIndex = -1;
+            let currentRealm = null;
+            
+            if (!mapInput || !mapDropdown) return;
+            
+            // Get all maps (either from selected realm or all maps)
+            function getAllMaps() {
+                if (currentRealm && realmToMaps[currentRealm]) {
+                    return realmToMaps[currentRealm].map(map => ({
+                        display: map.name,
+                        fullName: map.fullName,
+                        area: map.area
+                    }));
+                } else {
+                    // Show all maps if no realm selected
+                    const allMaps = [];
+                    Object.values(realmToMaps).forEach(maps => {
+                        maps.forEach(map => {
+                            allMaps.push({
+                                display: map.fullName,
+                                fullName: map.fullName,
+                                area: map.area
+                            });
+                        });
+                    });
+                    return allMaps;
+                }
+            }
+            
+            function filterMaps(query) {
+                const allMaps = getAllMaps();
+                if (!query) return allMaps;
+                const lowerQuery = query.toLowerCase();
+                return allMaps.filter(map => 
+                    map.fullName.toLowerCase().includes(lowerQuery) ||
+                    map.display.toLowerCase().includes(lowerQuery)
+                );
+            }
+            
+            function showDropdown(results) {
+                mapDropdown.innerHTML = '';
+                if (results.length === 0) {
+                    const item = document.createElement('div');
+                    item.className = 'autocomplete-item no-results';
+                    item.textContent = 'No maps found';
+                    mapDropdown.appendChild(item);
+                } else {
+                    results.forEach((map, index) => {
+                        const item = document.createElement('div');
+                        item.className = 'autocomplete-item';
+                        item.textContent = map.display;
+                        item.dataset.fullName = map.fullName;
+                        item.addEventListener('click', () => selectMap(map.fullName));
+                        mapDropdown.appendChild(item);
+                    });
+                }
+                mapDropdown.classList.add('show');
+                selectedIndex = -1;
+            }
+            
+            function selectMap(fullName) {
+                mapInput.value = fullName;
+                mapValue.value = fullName;
+                mapDropdown.classList.remove('show');
+                
+                // Auto-fill map type and area
+                if (mapNameToData[fullName]) {
+                    const mapData = mapNameToData[fullName];
+                    const mapTypeEl = document.getElementById('map_type');
+                    const mapAreaEl = document.getElementById('map_area');
+                    
+                    if (mapTypeEl) {
+                        mapTypeEl.value = mapData.type;
+                    }
+                    if (mapAreaEl) {
+                        mapAreaEl.value = mapData.area;
+                    }
+                    updateMapAreaValidation();
+                }
+            }
+            
+            mapInput.addEventListener('input', function() {
+                const query = this.value;
+                const results = filterMaps(query);
+                showDropdown(results);
+            });
+            
+            mapInput.addEventListener('focus', function() {
+                const query = this.value;
+                const results = filterMaps(query);
+                showDropdown(results);
+            });
+            
+            mapInput.addEventListener('keydown', function(e) {
+                const items = mapDropdown.querySelectorAll('.autocomplete-item:not(.no-results)');
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+                    items.forEach((item, i) => {
+                        item.classList.toggle('highlighted', i === selectedIndex);
+                    });
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedIndex = Math.max(selectedIndex - 1, -1);
+                    items.forEach((item, i) => {
+                        item.classList.toggle('highlighted', i === selectedIndex);
+                    });
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedIndex >= 0 && items[selectedIndex]) {
+                        selectMap(items[selectedIndex].dataset.fullName);
+                    }
+                } else if (e.key === 'Escape') {
+                    mapDropdown.classList.remove('show');
+                }
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!mapInput.contains(e.target) && !mapDropdown.contains(e.target)) {
+                    mapDropdown.classList.remove('show');
+                }
+            });
+            
+            // Watch for realm changes to update available maps
+            const realmValue = document.getElementById('realm_value');
+            const realmInput = document.getElementById('realm');
+            
+            function updateCurrentRealm() {
+                const value = realmValue ? realmValue.value : '';
+                if (allRealms.includes(value)) {
+                    currentRealm = value;
+                } else {
+                    // Also check if input exactly matches a realm
+                    const inputValue = realmInput ? realmInput.value : '';
+                    if (allRealms.includes(inputValue)) {
+                        currentRealm = inputValue;
+                        if (realmValue) realmValue.value = inputValue;
+                    } else {
+                        currentRealm = null;
+                    }
+                }
+                // Clear map input when realm changes
+                if (currentRealm !== null) {
+                    mapInput.value = '';
+                    mapValue.value = '';
+                }
+            }
+            
+            if (realmValue) {
+                realmValue.addEventListener('realmChanged', updateCurrentRealm);
+                // Watch for value attribute changes
+                const observer = new MutationObserver(updateCurrentRealm);
+                observer.observe(realmValue, { attributes: true, attributeFilter: ['value'] });
+            }
+            
+            if (realmInput) {
+                realmInput.addEventListener('blur', function() {
+                    // On blur, check if input matches a realm exactly
+                    const inputValue = this.value;
+                    if (allRealms.includes(inputValue)) {
+                        if (realmValue) realmValue.value = inputValue;
+                        updateCurrentRealm();
+                    }
+                });
+            }
+            
+            // Initial update
+            updateCurrentRealm();
+        }
+        
+        // Initialize autocomplete
+        setupRealmAutocomplete();
+        setupMapAutocomplete();
         
         function updateMapAreaValidation() {
             const mapTypeEl = document.getElementById('map_type');

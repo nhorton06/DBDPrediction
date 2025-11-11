@@ -482,9 +482,9 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
                         })
     
     # Define valid map areas based on map type
-    # Indoor maps can only be: 10000, 9088, 8832, 7264, or 6272
+    # Indoor maps can be: 11000, 10000, 9088, 8832, 7264, or 6272
     # Outdoor maps can be: 11264, 11008, 10752, 10496, 10304, 10240, 9984, 9728, 9472, 9216, 8960, 8704, 8448
-    indoor_map_areas = [10000, 9088, 8832, 7264, 6272]
+    indoor_map_areas = [11000, 10000, 9088, 8832, 7264, 6272]
     outdoor_map_areas = [11264, 11008, 10752, 10496, 10304, 10240, 9984, 9728, 9472, 9216, 8960, 8704, 8448]
     
     # Try best items (Medkit, Toolbox, Flashlight are usually best)
