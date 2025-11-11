@@ -11,8 +11,21 @@ import pandas as pd
 import os
 # Get the project root directory (parent of src/)
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-template_dir = os.path.join(project_root, 'templates')
-assets_dir = os.path.join(project_root, 'assets')
+
+# Determine template and assets directories
+# In Docker, files are at /app/, so check there first
+if os.path.exists('/app/templates'):
+    # Docker container
+    template_dir = '/app/templates'
+    assets_dir = '/app/assets'
+elif os.path.exists(os.path.join(project_root, 'templates')):
+    # Local development (project root)
+    template_dir = os.path.join(project_root, 'templates')
+    assets_dir = os.path.join(project_root, 'assets')
+else:
+    # Fallback: current directory structure
+    template_dir = os.path.join(project_root, 'templates')
+    assets_dir = os.path.join(project_root, 'assets')
 
 app = Flask(__name__, 
             template_folder=template_dir,
