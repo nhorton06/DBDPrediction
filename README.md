@@ -206,7 +206,7 @@ docker run --rm -p 5000:5000 \
 ### Docker Compose (Recommended)
 
 ```bash
-# Build and start the container
+# Build and start the container (one command startup)
 docker-compose up -d
 
 # The container will:
