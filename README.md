@@ -21,21 +21,39 @@ This project is a machine learning web application that predicts a survivor's pr
 
 ### Architecture Diagram
 
-The system follows a simple request-response flow:
+The system follows a request-response flow with multiple endpoints:
+
+**Prediction Flow:**
 1. User submits form data via web interface
-2. Flask receives and validates input
+2. Flask receives and validates input (including perk count validation)
 3. Features are preprocessed and scaled
 4. PyTorch model performs inference
 5. Result (escape probability) is returned and displayed
+6. Optionally, feature importance is calculated and displayed
+
+**Optimization Flow:**
+1. User clicks "Optimize" button with current form values
+2. Flask receives current configuration
+3. Optimization algorithm searches for best variable combinations (respecting 4-perk limit)
+4. Optimal configuration is returned with escape chance improvement
+5. User can apply optimized values to the form
+
+**Feature Importance Flow:**
+1. User checks "Show feature influence" and submits prediction
+2. Flask calculates gradients using backpropagation
+3. Feature importance (magnitude and direction) is computed
+4. Results are displayed showing which features increase/decrease escape chance
 
 *Note: A visual architecture diagram can be added to `/assets/architecture.png` if needed*
 
 **System Flow:**
 1. User inputs game parameters via web interface or API
-2. Flask application receives and validates input
+2. Flask application receives and validates input (perk count, data types, ranges)
 3. Features are preprocessed and scaled using saved scaler
 4. PyTorch model performs inference
-5. Result is formatted as probability percentage and returned to user
+5. Optional: Feature importance calculated via gradient analysis
+6. Result is formatted as probability percentage and returned to user
+7. Optional: Optimization endpoint finds best configuration to maximize escape chance
 
 ### Data/Models/Services
 
@@ -64,8 +82,16 @@ The system follows a simple request-response flow:
 
 **Services:**
 - **Web Interface**: Flask web server (port 5000) with toggle switch to select between models
-- **API Endpoint**: POST `/predict` for programmatic access (includes `model_type` parameter: `with_bp` or `no_bp`)
-- **Health Check**: GET `/health` for container health monitoring (reports status of both models)
+- **API Endpoints**:
+  - **POST `/predict`**: Main prediction endpoint (includes optional `include_importance` flag for feature influence)
+  - **POST `/optimize`**: Optimization endpoint to find best variable configuration (respects 4-perk limit)
+  - **GET `/health`**: Health check for container monitoring (reports status of both models)
+- **Features**:
+  - Real-time escape probability prediction
+  - Feature importance analysis (gradient-based, shows direction and magnitude)
+  - Configuration optimization (finds best settings to maximize escape chance)
+  - Perk validation (enforces 4-perk limit for survivors)
+  - Dual model support (with/without bloodpoints)
 
 ## 3) How to Run (Local)
 
@@ -73,8 +99,72 @@ The system follows a simple request-response flow:
 
 ### Prerequisites
 
-- Docker and Docker Compose installed
+- Docker and Docker Compose installed (for Docker method)
+- OR Python 3.8+ installed (for local Python method)
 - `DBDData.csv` file in the project root (will be used for training)
+
+### Local Python Development (Without Docker)
+
+If you want to run the application directly on your machine without Docker:
+
+**1. Install Python Dependencies:**
+
+```bash
+# Install required packages
+pip install -r requirements.txt
+```
+
+**2. Train Models (First Time Only):**
+
+Before running the app, you need to train the models. The models will be saved in the project root directory:
+
+```bash
+# Train both models (with and without bloodpoints)
+python src/train_model.py
+
+# This will create:
+# - dbd_model_with_bp.pth
+# - dbd_model_no_bp.pth
+# - scaler_with_bp.pkl
+# - scaler_no_bp.pkl
+# - model_info_with_bp.pkl
+# - model_info_no_bp.pkl
+```
+
+**Note**: Model training can take 2-5 minutes depending on your system. The models are saved to the current directory (project root) by default.
+
+**3. Run the Flask Application:**
+
+Use the provided `run_local.py` script which handles path setup correctly:
+
+```bash
+python run_local.py
+```
+
+The app will start on `http://127.0.0.1:5000` (or `http://localhost:5000`).
+
+**Alternative: Run Directly (Not Recommended):**
+
+If you prefer to run directly, you must be in the project root directory:
+
+```bash
+# Make sure you're in the project root
+cd /path/to/DBDPrediction
+
+# Set environment variable
+export FLASK_APP=src/app.py  # On Windows: set FLASK_APP=src/app.py
+
+# Run Flask
+python -m flask run --debug
+```
+
+**Important Notes for Local Development:**
+
+- Models must be trained before running the app (use `python src/train_model.py`)
+- Models are saved to the project root directory (`.`), not `/app/` like in Docker
+- The `run_local.py` script automatically sets up the correct paths for templates and models
+- If you see "Model not loaded" errors, make sure you've trained the models first
+- The app looks for models in: current directory, project root, `/app/`, and `project_root/app/`
 
 ### Docker (Single Command)
 
@@ -139,7 +229,9 @@ docker-compose build
 docker-compose up -d
 ```
 
-**Note**: Both models train automatically on startup, so the first request may take a few minutes while training completes. Subsequent requests are instant. The web interface includes a toggle switch to select between the "With Bloodpoints" and "Without Bloodpoints" models.
+**Note**: Models are pre-trained during the Docker build phase (takes 2-5 minutes), so container startup is fast (<10 seconds). The web interface includes a toggle switch to select between the "With Bloodpoints" and "Without Bloodpoints" models.
+
+**For Local Python Development**: Models must be trained manually using `python src/train_model.py` before running the app. See the "Local Python Development" section above for details.
 
 ## 4) Design Decisions
 
@@ -336,6 +428,7 @@ DBDPrediction/
 ├── Dockerfile             # Docker image definition
 ├── docker-compose.yml     # Docker Compose configuration
 ├── requirements.txt       # Python dependencies
+├── run_local.py          # Local development runner (sets up paths, runs Flask)
 ├── start.sh              # Container startup script (trains models, then starts Flask)
 ├── README.md             # Project documentation
 └── CREDITS.md            # Attribution for game assets and third-party resources
@@ -360,9 +453,12 @@ DBDPrediction/
 
 ### Recent Updates
 
+   - **Feature Importance Analysis**: Added gradient-based feature influence calculation showing which variables increase/decrease escape chance
+   - **Configuration Optimization**: Added optimization endpoint that finds the best variable combination to maximize escape chance (respects 4-perk limit)
+   - **Perk Validation**: Enforced 4-perk limit validation on both frontend and backend
    - **Dual Model Support**: Added toggle to switch between models with/without bloodpoint features
    - **Early Stopping**: Implemented early stopping (max 100 epochs, patience 5) for better generalization
-   - **Docker Hub Deployment**: Image available at `h2x0/dbd-predictor:latest`
+   - **Docker Hub Deployment**: Image available at `h2x0/dbd-predictor:latest` with pre-trained models
    - Added comprehensive perk support (exhaustion, chase, other perks)
    - Added map type and powerful add-ons features
    - Organized UI into categorized sections with model selection toggle
@@ -370,6 +466,7 @@ DBDPrediction/
    - Simplified outcome display
    - Added unit tests
    - Improved code organization (src/ folder structure)
+   - Added local development runner (`run_local.py`) for easier local hosting
 
 ### Stretch Features
 

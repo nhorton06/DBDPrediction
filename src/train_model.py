@@ -386,7 +386,7 @@ def train_model(csv_path='DBDData.csv', output_dir='/app', include_bp=True):
             best_val_loss = avg_val_loss
             best_model_state = copy.deepcopy(model.state_dict())
             patience_counter = 0
-            improvement = "✓"
+            improvement = "[BEST]"
         else:
             patience_counter += 1
             improvement = ""
@@ -453,7 +453,8 @@ if __name__ == '__main__':
     
     # Get CSV path from environment or use default
     csv_path = os.getenv('TRAINING_CSV', 'DBDData.csv')
-    output_dir = os.getenv('MODEL_OUTPUT_DIR', '/app')
+    # Default to current directory for local development, /app for Docker
+    output_dir = os.getenv('MODEL_OUTPUT_DIR', '.')
     
     # Train both models: with BP and without BP
     print("\n" + "=" * 60)

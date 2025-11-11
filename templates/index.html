@@ -926,12 +926,33 @@
             </div>
             
             <button type="submit" class="submit-btn">CALCULATE YOUR FATE</button>
+            
+            <div style="margin-top: 15px; text-align: center;">
+                <label style="color: #e0e0e0; font-size: 0.9em; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="includeImportance" style="width: auto; margin: 0;">
+                    Show feature influence
+                </label>
+            </div>
         </form>
+        
+        <button type="button" class="submit-btn" id="optimizeBtn" style="margin-top: 10px; background: linear-gradient(135deg, #1a4d1a 0%, #0d260d 100%);">
+            OPTIMIZE FOR MAX ESCAPE CHANCE
+        </button>
         
         <div class="loading" id="loading">ANALYZING ESCAPE ROUTES...</div>
         <div class="error" id="error"></div>
         
         <div class="result-container" id="result"></div>
+        
+        <div class="result-container" id="importanceResult" style="display: none; background: linear-gradient(135deg, #1a1a3a 0%, #0d0d1a 100%); border-color: #4444ff;">
+            <h3 class="form-section-title" style="margin-bottom: 15px;">Feature Influence</h3>
+            <div id="importanceContent"></div>
+        </div>
+        
+        <div class="result-container" id="optimizeResult" style="display: none; background: linear-gradient(135deg, #3a1a3a 0%, #1a0d1a 100%); border-color: #ff44ff;">
+            <h3 class="form-section-title" style="margin-bottom: 15px;">Optimized Configuration</h3>
+            <div id="optimizeContent"></div>
+        </div>
     </div>
     
     <script>
@@ -948,6 +969,9 @@
         // Handle toggle switch
         modelToggle.addEventListener('change', function() {
             const useBp = this.checked;
+            const survivorBpInput = document.getElementById('survivor_bp');
+            const killerBpInput = document.getElementById('killer_bp');
+            
             if (useBp) {
                 optionWithBp.classList.add('active');
                 optionNoBp.classList.remove('active');
@@ -957,22 +981,152 @@
                 if (bloodpointsTitle) {
                     bloodpointsTitle.textContent = 'Match Bloodpoints';
                 }
+                // Make BP fields required when using BP model
+                if (survivorBpInput) survivorBpInput.required = true;
+                if (killerBpInput) killerBpInput.required = true;
             } else {
                 optionWithBp.classList.remove('active');
                 optionNoBp.classList.add('active');
                 if (bloodpointsSection) {
                     bloodpointsSection.style.display = 'none';
                 }
+                // Remove required attribute when not using BP model
+                if (survivorBpInput) {
+                    survivorBpInput.required = false;
+                    survivorBpInput.value = ''; // Clear value
+                }
+                if (killerBpInput) {
+                    killerBpInput.required = false;
+                    killerBpInput.value = ''; // Clear value
+                }
             }
         });
         
         // Initialize on page load
         if (bloodpointsSection) {
-            bloodpointsSection.style.display = modelToggle.checked ? 'block' : 'none';
+            const useBp = modelToggle.checked;
+            bloodpointsSection.style.display = useBp ? 'block' : 'none';
+            const survivorBpInput = document.getElementById('survivor_bp');
+            const killerBpInput = document.getElementById('killer_bp');
+            // Set required attribute based on initial toggle state
+            if (survivorBpInput) survivorBpInput.required = useBp;
+            if (killerBpInput) killerBpInput.required = useBp;
         }
+        
+        // Perk count validation (survivors can only have 4 perks)
+        function countPerks() {
+            const exhaustionPerk = document.getElementById('exhaustion_perk').value;
+            const exhaustionCount = (exhaustionPerk && exhaustionPerk !== '' && exhaustionPerk !== '-- Select --' && exhaustionPerk !== 'None') ? 1 : 0;
+            const chasePerks = parseInt(document.getElementById('chase_perks').value) || 0;
+            const decisiveStrike = document.getElementById('decisive_strike').value === 'Yes' ? 1 : 0;
+            const unbreakable = document.getElementById('unbreakable').value === 'Yes' ? 1 : 0;
+            const offTheRecord = document.getElementById('off_the_record').value === 'Yes' ? 1 : 0;
+            const adrenaline = document.getElementById('adrenaline').value === 'Yes' ? 1 : 0;
+            
+            return exhaustionCount + chasePerks + decisiveStrike + unbreakable + offTheRecord + adrenaline;
+        }
+        
+        function updatePerkValidation() {
+            const totalPerks = countPerks();
+            const maxPerks = 4;
+            const remaining = maxPerks - totalPerks;
+            
+            // Get all perk-related fields
+            const perkFields = {
+                'exhaustion_perk': { field: document.getElementById('exhaustion_perk'), type: 'select', emptyValue: 'None' },
+                'chase_perks': { field: document.getElementById('chase_perks'), type: 'number', emptyValue: 0 },
+                'decisive_strike': { field: document.getElementById('decisive_strike'), type: 'select', emptyValue: 'No' },
+                'unbreakable': { field: document.getElementById('unbreakable'), type: 'select', emptyValue: 'No' },
+                'off_the_record': { field: document.getElementById('off_the_record'), type: 'select', emptyValue: 'No' },
+                'adrenaline': { field: document.getElementById('adrenaline'), type: 'select', emptyValue: 'No' }
+            };
+            
+            // Update each field's disabled state and set to "No" if needed
+            Object.entries(perkFields).forEach(([key, config]) => {
+                const field = config.field;
+                if (!field) return;
+                
+                const currentValue = field.value;
+                const isSelected = (key === 'exhaustion_perk' && currentValue && currentValue !== '' && currentValue !== '-- Select --' && currentValue !== 'None') ||
+                                  (key === 'chase_perks' && parseInt(currentValue) > 0) ||
+                                  (key === 'decisive_strike' && currentValue === 'Yes') ||
+                                  (key === 'unbreakable' && currentValue === 'Yes') ||
+                                  (key === 'off_the_record' && currentValue === 'Yes') ||
+                                  (key === 'adrenaline' && currentValue === 'Yes');
+                
+                // If we're at max perks and this field is not selected, set it to "No" and disable
+                if (totalPerks >= maxPerks && !isSelected) {
+                    if (config.type === 'select' && field.tagName === 'SELECT') {
+                        // Set to "No" for Yes/No selects, or "None" for exhaustion perk
+                        const targetValue = config.emptyValue;
+                        if (field.querySelector(`option[value="${targetValue}"]`)) {
+                            field.value = targetValue;
+                        }
+                    } else if (config.type === 'number') {
+                        // Set chase perks to 0
+                        field.value = '0';
+                    }
+                    field.disabled = true;
+                    field.style.opacity = '0.5';
+                    field.style.cursor = 'not-allowed';
+                } else {
+                    field.disabled = false;
+                    field.style.opacity = '1';
+                    field.style.cursor = 'pointer';
+                }
+            });
+            
+            // Show perk count indicator
+            let indicator = document.getElementById('perk-count-indicator');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.id = 'perk-count-indicator';
+                indicator.style.cssText = 'text-align: center; margin-top: 10px; padding: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; border: 1px solid rgba(139, 0, 0, 0.5);';
+                // Find the Perks section and append indicator
+                const perksSection = document.querySelector('.form-section-title');
+                if (perksSection && perksSection.textContent.includes('Perks')) {
+                    perksSection.parentElement.appendChild(indicator);
+                } else {
+                    // Fallback: append after the last perk field
+                    const lastPerkField = document.getElementById('adrenaline');
+                    if (lastPerkField) {
+                        lastPerkField.closest('.form-section').appendChild(indicator);
+                    }
+                }
+            }
+            
+            if (totalPerks > maxPerks) {
+                indicator.innerHTML = `<span style="color: #ff6666; font-weight: bold;">⚠ Too many perks! (${totalPerks}/4) - Survivors can only have 4 perks.</span>`;
+            } else if (totalPerks === maxPerks) {
+                indicator.innerHTML = `<span style="color: #4dff4d; font-weight: bold;">✓ All perk slots filled (${totalPerks}/4)</span>`;
+            } else {
+                indicator.innerHTML = `<span style="color: #e0e0e0;">Perks: ${totalPerks}/4 (${remaining} remaining)</span>`;
+            }
+        }
+        
+        // Add event listeners to all perk fields
+        ['exhaustion_perk', 'chase_perks', 'decisive_strike', 'unbreakable', 'off_the_record', 'adrenaline'].forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (field) {
+                field.addEventListener('change', updatePerkValidation);
+            }
+        });
+        
+        // Initialize perk validation on page load
+        updatePerkValidation();
         
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            // Validate perk count before submitting
+            const totalPerks = countPerks();
+            if (totalPerks > 4) {
+                errorDiv.textContent = `ERROR: Too many perks selected (${totalPerks}/4). Survivors can only have 4 perks total.`;
+                errorDiv.style.display = 'block';
+                resultDiv.style.display = 'none';
+                loadingDiv.style.display = 'none';
+                return;
+            }
             
             // Hide previous results
             resultDiv.style.display = 'none';
@@ -1009,6 +1163,9 @@
             }
             
             try {
+                const includeImportance = document.getElementById('includeImportance').checked;
+                formData.include_importance = includeImportance;
+                
                 const response = await fetch('/predict', {
                     method: 'POST',
                     headers: {
@@ -1039,12 +1196,581 @@
                 `;
                 resultDiv.style.display = 'block';
                 
+                // Display feature importance if requested
+                if (data.feature_importance) {
+                    displayFeatureImportance(data.feature_importance);
+                } else {
+                    document.getElementById('importanceResult').style.display = 'none';
+                }
+                
             } catch (error) {
                 loadingDiv.style.display = 'none';
                 errorDiv.textContent = `ERROR: ${error.message}`;
                 errorDiv.style.display = 'block';
             }
         });
+        
+        // Optimize button handler
+        document.getElementById('optimizeBtn').addEventListener('click', async () => {
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+            const optimizeResult = document.getElementById('optimizeResult');
+            
+            loadingDiv.style.display = 'block';
+            errorDiv.style.display = 'none';
+            optimizeResult.style.display = 'none';
+            
+            // Collect current form data
+            const useBp = modelToggle.checked;
+            const modelType = useBp ? 'with_bp' : 'no_bp';
+            
+            const currentValues = {
+                model_type: modelType,
+                survivor_gender: document.getElementById('survivor_gender').value,
+                steam_player: document.getElementById('steam_player').value,
+                anonymous_mode: document.getElementById('anonymous_mode').value,
+                item: document.getElementById('item').value,
+                prestige: parseFloat(document.getElementById('prestige').value) || 0,
+                map_type: document.getElementById('map_type').value,
+                map_area: parseFloat(document.getElementById('map_area').value) || 9728,
+                powerful_add_ons: document.getElementById('powerful_add_ons').value,
+                exhaustion_perk: document.getElementById('exhaustion_perk').value,
+                chase_perks: parseFloat(document.getElementById('chase_perks').value) || 0,
+                decisive_strike: document.getElementById('decisive_strike').value,
+                unbreakable: document.getElementById('unbreakable').value,
+                off_the_record: document.getElementById('off_the_record').value,
+                adrenaline: document.getElementById('adrenaline').value
+            };
+            
+            if (useBp) {
+                currentValues.survivor_bp = parseFloat(document.getElementById('survivor_bp').value) || 0;
+                currentValues.killer_bp = parseFloat(document.getElementById('killer_bp').value) || 0;
+            }
+            
+            // Get current escape chance first
+            try {
+                const predictResponse = await fetch('/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({...currentValues, include_importance: false})
+                });
+                const predictData = await predictResponse.json();
+                currentValues.current_escape_chance = predictData.escape_chance;
+            } catch (e) {
+                console.error('Could not get current escape chance:', e);
+            }
+            
+            try {
+                const response = await fetch('/optimize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model_type: modelType,
+                        current_values: currentValues,
+                        current_escape_chance: currentValues.current_escape_chance
+                    })
+                });
+                
+                const data = await response.json();
+                loadingDiv.style.display = 'none';
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Optimization failed');
+                }
+                
+                displayOptimization(data);
+                
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                errorDiv.textContent = `ERROR: ${error.message}`;
+                errorDiv.style.display = 'block';
+            }
+        });
+        
+        function displayFeatureImportance(importance) {
+            const importanceResult = document.getElementById('importanceResult');
+            const importanceContent = document.getElementById('importanceContent');
+            
+            // Map model feature names to form field order (matching HTML form order)
+            const featureOrder = [
+                ['Survivor Gender', 'survivor_gender'],
+                ['Steam Player', 'steam_player'],
+                ['Anonymous Mode', 'anonymous_mode'],
+                ['Prestige', 'prestige'],
+                ['Brought_Firecracker', 'item'], ['Brought_Flashlight', 'item'], ['Brought_Fog Vial', 'item'],
+                ['Brought_Key', 'item'], ['Brought_Map', 'item'], ['Brought_Medkit', 'item'],
+                ['Brought_Toolbox', 'item'], ['Brought_None', 'item'],
+                ['Powerful Add-ons', 'powerful_add_ons'],
+                ['MapType_Outdoor', 'map_type'], ['MapType_Indoor', 'map_type'],
+                ['Map Area', 'map_area'],
+                ['Exhaustion_None', 'exhaustion_perk'], ['Exhaustion_Sprint Burst', 'exhaustion_perk'],
+                ['Exhaustion_Dead Hard', 'exhaustion_perk'], ['Exhaustion_Lithe', 'exhaustion_perk'],
+                ['Exhaustion_Overcome', 'exhaustion_perk'], ['Exhaustion_DHBL', 'exhaustion_perk'],
+                ['Exhaustion_Balanced Landing', 'exhaustion_perk'], ['Exhaustion_Background Player', 'exhaustion_perk'],
+                ['Exhaustion_Head On', 'exhaustion_perk'],
+                ['Chase Perks', 'chase_perks'],
+                ['Decisive Strike', 'decisive_strike'],
+                ['Unbreakable', 'unbreakable'],
+                ['Off the Record', 'off_the_record'],
+                ['Adrenaline', 'adrenaline'],
+                ['Survivor BP', 'survivor_bp'],
+                ['Killer BP', 'killer_bp']
+            ];
+            
+            // Create a mapping from model feature names to display order
+            const featureToOrder = {};
+            featureOrder.forEach(([modelName, fieldName], index) => {
+                if (!featureToOrder[modelName]) {
+                    featureToOrder[modelName] = index;
+                }
+            });
+            
+            // Group features by their form field and get the highest importance for each
+            const fieldImportance = {};
+            const fieldDisplayNames = {}; // Store custom display names for special cases
+            
+            for (const [feature, info] of Object.entries(importance)) {
+                // Find which form field this feature belongs to
+                let fieldName = null;
+                let displayName = null;
+                let order = Infinity;
+                
+                const lowerFeature = feature.toLowerCase();
+                
+                // Handle special cases with custom display names
+                if (lowerFeature.includes('survivor gender') || lowerFeature.includes('is_female')) {
+                    fieldName = 'survivor_gender';
+                    // If positive gradient, Female (1) increases escape chance, so show "Female"
+                    // If negative gradient, Male (0) increases escape chance, so show "Male"
+                    const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                    displayName = isPositive ? 'Female' : 'Male';
+                } else if (lowerFeature.includes('brought_')) {
+                    fieldName = 'item';
+                    // Remove "Brought_" prefix
+                    displayName = feature.replace(/^Brought_/, '');
+                } else if (lowerFeature.includes('exhaustion_')) {
+                    fieldName = 'exhaustion_perk';
+                    // Remove "Exhaustion_" prefix
+                    displayName = feature.replace(/^Exhaustion_/, '');
+                } else if (lowerFeature.includes('maptype_outdoor')) {
+                    fieldName = 'map_type';
+                    displayName = 'Outdoor Map';
+                } else if (lowerFeature.includes('maptype_indoor')) {
+                    fieldName = 'map_type';
+                    displayName = 'Indoor Map';
+                } else {
+                    // Try to match from featureOrder list
+                    for (const [modelName, formField] of featureOrder) {
+                        if (feature === modelName || feature.includes(modelName.split('_')[0])) {
+                            const fieldOrder = featureToOrder[modelName] !== undefined ? featureToOrder[modelName] : Infinity;
+                            if (fieldOrder < order) {
+                                order = fieldOrder;
+                                fieldName = formField;
+                            }
+                        }
+                    }
+                    
+                    // If not found in order list, try to match by name
+                    if (!fieldName) {
+                        if (lowerFeature.includes('steam')) fieldName = 'steam_player';
+                        else if (lowerFeature.includes('anonymous')) fieldName = 'anonymous_mode';
+                        else if (lowerFeature.includes('prestige')) fieldName = 'prestige';
+                        else if (lowerFeature.includes('powerful add')) fieldName = 'powerful_add_ons';
+                        else if (lowerFeature.includes('map area')) fieldName = 'map_area';
+                        else if (lowerFeature.includes('chase perk')) fieldName = 'chase_perks';
+                        else if (lowerFeature.includes('decisive')) fieldName = 'decisive_strike';
+                        else if (lowerFeature.includes('unbreakable')) fieldName = 'unbreakable';
+                        else if (lowerFeature.includes('off the record')) fieldName = 'off_the_record';
+                        else if (lowerFeature.includes('adrenaline')) fieldName = 'adrenaline';
+                        else if (lowerFeature.includes('survivor bp')) fieldName = 'survivor_bp';
+                        else if (lowerFeature.includes('killer bp')) fieldName = 'killer_bp';
+                    }
+                }
+                
+                if (fieldName) {
+                    const magnitude = typeof info === 'object' ? (info.magnitude || 0) : info;
+                    const currentMagnitude = fieldImportance[fieldName] ? (typeof fieldImportance[fieldName] === 'object' ? fieldImportance[fieldName].magnitude : fieldImportance[fieldName]) : 0;
+                    
+                    if (magnitude > currentMagnitude) {
+                        fieldImportance[fieldName] = info;
+                        fieldImportance[fieldName]._order = order;
+                        if (displayName) {
+                            fieldDisplayNames[fieldName] = displayName;
+                        }
+                    }
+                }
+            }
+            
+            // Define display order matching HTML form
+            const displayOrder = [
+                ['survivor_gender', 'Survivor Gender'],
+                ['steam_player', 'Steam Player'],
+                ['anonymous_mode', 'Anonymous Mode'],
+                ['prestige', 'Prestige'],
+                ['item', 'Item'],
+                ['powerful_add_ons', 'Powerful Add-ons'],
+                ['map_type', 'Map Type'],
+                ['map_area', 'Map Area'],
+                ['exhaustion_perk', 'Exhaustion Perk'],
+                ['chase_perks', 'Chase Perks'],
+                ['decisive_strike', 'Decisive Strike'],
+                ['unbreakable', 'Unbreakable'],
+                ['off_the_record', 'Off the Record'],
+                ['adrenaline', 'Adrenaline']
+            ];
+            
+            if (modelToggle.checked) {
+                displayOrder.push(['survivor_bp', 'Survivor BP']);
+                displayOrder.push(['killer_bp', 'Killer BP']);
+            }
+            
+            let html = '<div style="max-height: 400px; overflow-y: auto;">';
+            html += '<table style="width: 100%; border-collapse: collapse; color: #e0e0e0;">';
+            html += '<tr style="border-bottom: 1px solid rgba(68, 68, 255, 0.5);">';
+            html += '<th style="text-align: left; padding: 8px;">Feature</th>';
+            html += '<th style="text-align: center; padding: 8px;">Impact</th>';
+            html += '<th style="text-align: right; padding: 8px;">Influence %</th>';
+            html += '</tr>';
+            
+            // Display in form order
+            for (const [fieldKey, defaultDisplayName] of displayOrder) {
+                if (fieldImportance[fieldKey]) {
+                    const info = fieldImportance[fieldKey];
+                    // Use custom display name if available, otherwise use default
+                    const finalDisplayName = fieldDisplayNames[fieldKey] || defaultDisplayName;
+                    
+                    // Handle both old format (just number) and new format (object with magnitude/direction)
+                    let magnitude, direction, isPositive;
+                    if (typeof info === 'object' && info !== null) {
+                        magnitude = info.magnitude || info;
+                        direction = info.direction;
+                        // Determine direction from raw_gradient if available, otherwise use direction field
+                        if (info.raw_gradient !== undefined && info.raw_gradient !== null) {
+                            // Use raw_gradient to determine direction (even if very small)
+                            // Check if it's significantly different from 0 (use a small threshold to handle rounding)
+                            const threshold = 1e-6;
+                            if (info.raw_gradient > threshold) {
+                                isPositive = true;
+                            } else if (info.raw_gradient < -threshold) {
+                                isPositive = false;
+                            } else {
+                                // Very close to zero - check direction field
+                                isPositive = direction === 'positive' ? true : (direction === 'negative' ? false : null);
+                            }
+                        } else if (direction !== undefined && direction !== null) {
+                            // Fall back to direction field
+                            isPositive = direction === 'positive' ? true : (direction === 'negative' ? false : null);
+                        } else {
+                            // Unknown direction
+                            isPositive = null;
+                        }
+                    } else {
+                        // Old format - just show magnitude
+                        magnitude = info;
+                        isPositive = null; // Unknown direction
+                    }
+                    
+                    const barWidth = Math.min(magnitude, 100);
+                    const barColor = isPositive === true ? 'linear-gradient(90deg, #4dff4d, #66ff66)' : 
+                                    isPositive === false ? 'linear-gradient(90deg, #ff6666, #ff8888)' : 
+                                    'linear-gradient(90deg, #4444ff, #6666ff)';
+                    const directionText = isPositive === true ? '↑ Increases' : 
+                                         isPositive === false ? '↓ Decreases' : '—';
+                    const directionColor = isPositive === true ? '#4dff4d' : 
+                                          isPositive === false ? '#ff6666' : '#888';
+                    
+                    html += `<tr style="border-bottom: 1px solid rgba(68, 68, 255, 0.2);">
+                        <td style="padding: 8px;">${finalDisplayName}</td>
+                        <td style="padding: 8px; text-align: center; color: ${directionColor}; font-size: 0.9em;">
+                            ${directionText || '—'}
+                        </td>
+                        <td style="padding: 8px; text-align: right;">
+                            <div style="display: flex; align-items: center; gap: 10px; justify-content: flex-end;">
+                                <div style="width: 150px; height: 20px; background: rgba(68, 68, 255, 0.2); border-radius: 3px; overflow: hidden;">
+                                    <div style="width: ${barWidth}%; height: 100%; background: ${barColor}; transition: width 0.3s;"></div>
+                                </div>
+                                <span style="min-width: 50px; text-align: right;">${magnitude.toFixed(1)}%</span>
+                            </div>
+                        </td>
+                    </tr>`;
+                }
+            }
+            
+            html += '</table>';
+            html += '<div style="margin-top: 15px; padding: 10px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; font-size: 0.9em; color: #aaa;">';
+            html += '<strong>Note:</strong> Higher % = larger impact. ';
+            html += '<span style="color: #4dff4d;">↑ Increases</span> = raises escape chance. ';
+            html += '<span style="color: #ff6666;">↓ Decreases</span> = lowers escape chance.';
+            html += '</div>';
+            html += '</div>';
+            importanceContent.innerHTML = html;
+            importanceResult.style.display = 'block';
+        }
+        
+        function displayOptimization(data) {
+            const optimizeResult = document.getElementById('optimizeResult');
+            const optimizeContent = document.getElementById('optimizeContent');
+            
+            const config = data.optimized_config;
+            let html = `<div style="color: #e0e0e0;">`;
+            html += `<div style="text-align: center; margin-bottom: 20px;">`;
+            html += `<div style="font-size: 2em; font-weight: bold; color: #ff44ff; margin-bottom: 10px;">${data.optimized_escape_chance}%</div>`;
+            if (data.current_escape_chance && data.improvement) {
+                html += `<div style="font-size: 1.2em;">Improvement: <span style="color: #4dff4d;">+${data.improvement}%</span> (from ${data.current_escape_chance}%)</div>`;
+            }
+            html += `</div>`;
+            
+            html += `<div style="background: rgba(0, 0, 0, 0.3); padding: 15px; border-radius: 5px; margin-top: 15px;">`;
+            html += `<h4 style="color: #ff44ff; margin-bottom: 10px;">Recommended Changes:</h4>`;
+            html += `<ul style="list-style: none; padding: 0;">`;
+            
+            // Compare with current values and show differences
+            // Order matches the HTML form order
+            const fields = [
+                ['survivor_gender', 'Survivor Gender'],
+                ['steam_player', 'Steam Player'],
+                ['anonymous_mode', 'Anonymous Mode'],
+                ['prestige', 'Prestige'],
+                ['item', 'Item'],
+                ['powerful_add_ons', 'Powerful Add-ons'],
+                ['map_type', 'Map Type'],
+                ['map_area', 'Map Area'],
+                ['exhaustion_perk', 'Exhaustion Perk'],
+                ['chase_perks', 'Chase Perks'],
+                ['decisive_strike', 'Decisive Strike'],
+                ['unbreakable', 'Unbreakable'],
+                ['off_the_record', 'Off the Record'],
+                ['adrenaline', 'Adrenaline']
+            ];
+            
+            if (modelToggle.checked) {
+                fields.push(['survivor_bp', 'Survivor BP']);
+                fields.push(['killer_bp', 'Killer BP']);
+            }
+            
+            let hasChanges = false; // Track if there are any changes to show
+            
+            for (const [key, label] of fields) {
+                const currentEl = document.getElementById(key);
+                if (currentEl && config[key] !== undefined) {
+                    // Get the actual selected value - ONLY use .value property, never .textContent
+                    let currentVal = '';
+                    
+                    if (currentEl.tagName === 'SELECT') {
+                        // For select elements, ONLY get the value property
+                        currentVal = currentEl.value || '';
+                        // If value is empty and selectedIndex is 0, it's likely the placeholder
+                        if (!currentVal && currentEl.selectedIndex === 0) {
+                            currentVal = ''; // Treat as empty
+                        }
+                    } else if (currentEl.tagName === 'INPUT') {
+                        // For input elements, get the value
+                        currentVal = currentEl.value || '';
+                    }
+                    
+                    let optVal = config[key];
+                    
+                    // Normalize empty values - treat "-- Select --", empty string, etc. as no value
+                    const emptyValues = ['', '-- Select --', '--Select--', 'Select'];
+                    const isEmpty = !currentVal || (typeof currentVal === 'string' && (currentVal.trim() === '' || emptyValues.includes(currentVal.trim())));
+                    
+                    // Normalize values for comparison (before formatting for display)
+                    let normalizedCurrent = currentVal;
+                    let normalizedOpt = optVal;
+                    
+                    // Handle numeric fields - compare as numbers
+                    if (['prestige', 'chase_perks', 'map_area', 'survivor_bp', 'killer_bp'].includes(key)) {
+                        normalizedCurrent = isEmpty ? null : parseFloat(currentVal);
+                        normalizedOpt = optVal !== undefined && optVal !== null ? parseFloat(optVal) : null;
+                        // Compare numbers (handle NaN)
+                        if (isNaN(normalizedCurrent)) normalizedCurrent = null;
+                        if (isNaN(normalizedOpt)) normalizedOpt = null;
+                    } else {
+                        // For non-numeric fields, normalize strings
+                        normalizedCurrent = isEmpty ? '' : String(currentVal).trim();
+                        normalizedOpt = optVal !== undefined && optVal !== null ? String(optVal).trim() : '';
+                    }
+                    
+                    // Check if values match (after normalization)
+                    let valuesMatch = false;
+                    if (['prestige', 'chase_perks', 'map_area', 'survivor_bp', 'killer_bp'].includes(key)) {
+                        // For numeric fields, compare with tolerance for floating point
+                        if (normalizedCurrent === null && normalizedOpt === null) {
+                            valuesMatch = true;
+                        } else if (normalizedCurrent !== null && normalizedOpt !== null) {
+                            // Compare numbers with small tolerance for floating point precision
+                            valuesMatch = Math.abs(normalizedCurrent - normalizedOpt) < 0.01;
+                        }
+                    } else {
+                        // For string fields, exact match
+                        valuesMatch = normalizedCurrent === normalizedOpt || 
+                                     (normalizedCurrent === '' && normalizedOpt === '');
+                    }
+                    
+                    // Format display values for better readability (only for display, not comparison)
+                    let displayCurrent = currentVal;
+                    let displayOpt = optVal;
+                    if (key === 'survivor_gender') {
+                        if (displayOpt === 'F') displayOpt = 'Female';
+                        else if (displayOpt === 'M') displayOpt = 'Male';
+                        if (displayCurrent === 'F') displayCurrent = 'Female';
+                        else if (displayCurrent === 'M') displayCurrent = 'Male';
+                    }
+                    
+                    // Only show if values don't match
+                    if (!valuesMatch) {
+                        hasChanges = true;
+                        if (isEmpty) {
+                            // If no current value selected, just show the recommended value
+                            html += `<li style="padding: 5px 0; border-bottom: 1px solid rgba(255, 68, 255, 0.2);">
+                                <strong>${label}:</strong> 
+                                <span style="color: #4dff4d;">${displayOpt}</span>
+                            </li>`;
+                        } else {
+                            // Show current → optimized
+                            html += `<li style="padding: 5px 0; border-bottom: 1px solid rgba(255, 68, 255, 0.2);">
+                                <strong>${label}:</strong> 
+                                <span style="color: #ff6666;">${displayCurrent}</span> → 
+                                <span style="color: #4dff4d;">${displayOpt}</span>
+                            </li>`;
+                        }
+                    }
+                    // If current value matches optimized, don't show it (don't set hasChanges)
+                }
+            }
+            
+            // If no changes were found, replace the changes section with a message
+            if (!hasChanges) {
+                // Replace the "Recommended Changes" section with the optimal configuration message
+                html = html.replace(/<h4 style="color: #ff44ff; margin-bottom: 10px;">Recommended Changes:<\/h4>[\s\S]*?<\/ul><\/div>/, 
+                    `<div style="text-align: center; padding: 20px;">
+                        <div style="color: #4dff4d; font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">✓ You already have the optimal configuration!</div>
+                        <div style="color: #aaa; font-size: 0.9em;">All your current settings are already set to maximize your escape chance.</div>
+                    </div>`);
+            } else {
+                // Only show the apply button if there are changes
+                html += `</ul></div>`;
+                html += `<button onclick="applyOptimization()" style="margin-top: 15px; width: 100%; padding: 12px; background: linear-gradient(135deg, #4d1a4d 0%, #2d0d2d 100%); color: #fff; border: 2px solid #ff44ff; border-radius: 5px; cursor: pointer; font-weight: bold;">Apply Optimized Values</button>`;
+            }
+            
+            html += `</div>`;
+            
+            optimizeContent.innerHTML = html;
+            optimizeResult.style.display = 'block';
+            
+            // Store optimized config for apply function
+            window.optimizedConfig = config;
+        }
+        
+        window.applyOptimization = function() {
+            if (!window.optimizedConfig) return;
+            
+            const config = window.optimizedConfig;
+            
+            // Apply all values to form (use !== undefined to handle falsy values like "None", "No", 0)
+            if (config.survivor_gender !== undefined) {
+                const survivorGenderEl = document.getElementById('survivor_gender');
+                if (survivorGenderEl) survivorGenderEl.value = config.survivor_gender;
+            }
+            
+            if (config.steam_player !== undefined) {
+                const steamPlayerEl = document.getElementById('steam_player');
+                if (steamPlayerEl) steamPlayerEl.value = config.steam_player;
+            }
+            
+            if (config.anonymous_mode !== undefined) {
+                const anonymousModeEl = document.getElementById('anonymous_mode');
+                if (anonymousModeEl) anonymousModeEl.value = config.anonymous_mode;
+            }
+            
+            if (config.item !== undefined) {
+                const itemEl = document.getElementById('item');
+                if (itemEl) itemEl.value = config.item;
+            }
+            
+            if (config.exhaustion_perk !== undefined) {
+                const exhaustionEl = document.getElementById('exhaustion_perk');
+                if (exhaustionEl) exhaustionEl.value = config.exhaustion_perk;
+            }
+            
+            if (config.map_type !== undefined) {
+                const mapTypeEl = document.getElementById('map_type');
+                if (mapTypeEl) mapTypeEl.value = config.map_type;
+            }
+            
+            if (config.prestige !== undefined) {
+                const prestigeEl = document.getElementById('prestige');
+                if (prestigeEl) prestigeEl.value = config.prestige;
+            }
+            
+            if (config.chase_perks !== undefined) {
+                const chasePerksEl = document.getElementById('chase_perks');
+                if (chasePerksEl) chasePerksEl.value = config.chase_perks;
+            }
+            
+            if (config.map_area !== undefined) {
+                const mapAreaEl = document.getElementById('map_area');
+                if (mapAreaEl) mapAreaEl.value = config.map_area;
+            }
+            
+            if (config.powerful_add_ons !== undefined) {
+                const powerfulAddonsEl = document.getElementById('powerful_add_ons');
+                if (powerfulAddonsEl) powerfulAddonsEl.value = config.powerful_add_ons;
+            }
+            
+            if (config.decisive_strike !== undefined) {
+                const decisiveStrikeEl = document.getElementById('decisive_strike');
+                if (decisiveStrikeEl) decisiveStrikeEl.value = config.decisive_strike;
+            }
+            
+            if (config.unbreakable !== undefined) {
+                const unbreakableEl = document.getElementById('unbreakable');
+                if (unbreakableEl) unbreakableEl.value = config.unbreakable;
+            }
+            
+            if (config.off_the_record !== undefined) {
+                const offTheRecordEl = document.getElementById('off_the_record');
+                if (offTheRecordEl) offTheRecordEl.value = config.off_the_record;
+            }
+            
+            if (config.adrenaline !== undefined) {
+                const adrenalineEl = document.getElementById('adrenaline');
+                if (adrenalineEl) adrenalineEl.value = config.adrenaline;
+            }
+            
+            // Handle bloodpoints based on toggle state
+            if (modelToggle.checked) {
+                // BP model is on - apply BP values
+                if (config.survivor_bp !== undefined) {
+                    const survivorBpEl = document.getElementById('survivor_bp');
+                    if (survivorBpEl) survivorBpEl.value = config.survivor_bp;
+                }
+                if (config.killer_bp !== undefined) {
+                    const killerBpEl = document.getElementById('killer_bp');
+                    if (killerBpEl) killerBpEl.value = config.killer_bp;
+                }
+            } else {
+                // BP model is off - clear BP fields if they exist in config (shouldn't happen, but be safe)
+                const survivorBpEl = document.getElementById('survivor_bp');
+                const killerBpEl = document.getElementById('killer_bp');
+                if (survivorBpEl) survivorBpEl.value = '';
+                if (killerBpEl) killerBpEl.value = '';
+            }
+            
+            // Trigger perk validation update after applying values
+            updatePerkValidation();
+            
+            // Hide the optimization result since values have been applied
+            const optimizeResult = document.getElementById('optimizeResult');
+            if (optimizeResult) {
+                optimizeResult.style.display = 'none';
+            }
+            
+            // Scroll to form
+            document.getElementById('predictionForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
     </script>
 </body>
 </html>
