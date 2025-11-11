@@ -40,8 +40,9 @@ COPY DBDData.csv ./
 RUN dos2unix start.sh && chmod +x start.sh
 
 # Note: Models are NOT pre-trained during build
-# Models will be trained on every container startup to ensure they use the latest data
+# Models will be trained on container startup only if the data file has changed (detected via hash comparison)
 # This allows updating DBDData.csv and having models automatically retrain with new data
+# If data is unchanged, startup is fast (~30 seconds) as training is skipped
 # DBDData.csv is included in the image, but can be overridden via volume mount or environment variable
 
 # Expose port

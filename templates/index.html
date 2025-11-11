@@ -1149,6 +1149,81 @@
         // Initialize perk validation on page load
         updatePerkValidation();
         
+        // Map area validation
+        const indoorMapAreas = [10000, 9088, 8832, 7264, 6272];
+        const outdoorMapAreas = [11264, 11008, 10752, 10496, 10304, 10240, 9984, 9728, 9472, 9216, 8960, 8704, 8448];
+        
+        function updateMapAreaValidation() {
+            const mapTypeEl = document.getElementById('map_type');
+            const mapAreaEl = document.getElementById('map_area');
+            
+            if (!mapTypeEl || !mapAreaEl) return;
+            
+            const mapType = mapTypeEl.value;
+            const mapArea = parseFloat(mapAreaEl.value);
+            
+            // Get valid areas based on map type
+            let validAreas = [];
+            let areaLabel = '';
+            
+            if (mapType === 'Indoor') {
+                validAreas = indoorMapAreas;
+                areaLabel = 'Indoor';
+            } else if (mapType === 'Outdoor') {
+                validAreas = outdoorMapAreas;
+                areaLabel = 'Outdoor';
+            }
+            
+            // Update placeholder with valid values
+            if (validAreas.length > 0) {
+                mapAreaEl.placeholder = `Valid ${areaLabel} areas: ${validAreas.join(', ')}`;
+            } else {
+                mapAreaEl.placeholder = 'Enter area in square meters';
+            }
+            
+            // Validate if both map type and area are set
+            if (mapType && !isNaN(mapArea)) {
+                const isValid = validAreas.includes(mapArea);
+                
+                // Remove existing validation indicator
+                let indicator = document.getElementById('map-area-indicator');
+                if (!indicator) {
+                    indicator = document.createElement('div');
+                    indicator.id = 'map-area-indicator';
+                    indicator.style.cssText = 'text-align: center; margin-top: 5px; padding: 5px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; font-size: 0.9em;';
+                    mapAreaEl.parentElement.appendChild(indicator);
+                }
+                
+                if (isValid) {
+                    indicator.innerHTML = `<span style="color: #4dff4d;">✓ Valid ${areaLabel} map area</span>`;
+                    mapAreaEl.style.borderColor = '#4dff4d';
+                } else {
+                    indicator.innerHTML = `<span style="color: #ff6666;">⚠ Invalid ${areaLabel} map area. Valid values: ${validAreas.join(', ')}</span>`;
+                    mapAreaEl.style.borderColor = '#ff6666';
+                }
+            } else {
+                // Clear indicator if map type not selected
+                const indicator = document.getElementById('map-area-indicator');
+                if (indicator) {
+                    indicator.innerHTML = '';
+                }
+                mapAreaEl.style.borderColor = '';
+            }
+        }
+        
+        // Add event listeners for map validation
+        const mapTypeEl = document.getElementById('map_type');
+        const mapAreaEl = document.getElementById('map_area');
+        
+        if (mapTypeEl) {
+            mapTypeEl.addEventListener('change', updateMapAreaValidation);
+        }
+        
+        if (mapAreaEl) {
+            mapAreaEl.addEventListener('input', updateMapAreaValidation);
+            mapAreaEl.addEventListener('blur', updateMapAreaValidation);
+        }
+        
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -1160,6 +1235,27 @@
                 resultDiv.style.display = 'none';
                 loadingDiv.style.display = 'none';
                 return;
+            }
+            
+            // Validate map area based on map type
+            const mapType = document.getElementById('map_type').value;
+            const mapArea = parseFloat(document.getElementById('map_area').value);
+            
+            if (mapType && !isNaN(mapArea)) {
+                let validAreas = [];
+                if (mapType === 'Indoor') {
+                    validAreas = indoorMapAreas;
+                } else if (mapType === 'Outdoor') {
+                    validAreas = outdoorMapAreas;
+                }
+                
+                if (validAreas.length > 0 && !validAreas.includes(mapArea)) {
+                    errorDiv.textContent = `ERROR: Invalid map area for ${mapType} maps. Valid values: ${validAreas.join(', ')}`;
+                    errorDiv.style.display = 'block';
+                    resultDiv.style.display = 'none';
+                    loadingDiv.style.display = 'none';
+                    return;
+                }
             }
             
             // Hide previous results

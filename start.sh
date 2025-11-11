@@ -1,16 +1,12 @@
 #!/bin/bash
-# Startup script that trains the model, then starts Flask
-# Models are always trained on startup to ensure they use the latest data
+# Startup script that trains the model (if needed), then starts Flask
+# Models are only retrained when the data file has changed
 
 set -e  # Exit on error
 
 echo "=========================================="
 echo "DBD Escape Prediction Container Startup"
 echo "=========================================="
-
-# Always train models on startup to use the latest data
-echo "Training models with latest data..."
-echo ""
 
 # Check if CSV file exists
 CSV_PATH="${TRAINING_CSV:-/app/DBDData.csv}"
@@ -20,7 +16,7 @@ if [ ! -f "$CSV_PATH" ]; then
     exit 1
 fi
 
-echo "Step 1: Training models on $CSV_PATH"
+echo "Step 1: Checking if model training is needed"
 echo "----------------------------------------"
 python train_model.py
 

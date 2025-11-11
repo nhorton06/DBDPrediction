@@ -481,14 +481,26 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
                             'other_perks': combo
                         })
     
+    # Define valid map areas based on map type
+    # Indoor maps can only be: 10000, 9088, 8832, 7264, or 6272
+    # Outdoor maps can be: 11264, 11008, 10752, 10496, 10304, 10240, 9984, 9728, 9472, 9216, 8960, 8704, 8448
+    indoor_map_areas = [10000, 9088, 8832, 7264, 6272]
+    outdoor_map_areas = [11264, 11008, 10752, 10496, 10304, 10240, 9984, 9728, 9472, 9216, 8960, 8704, 8448]
+    
     # Try best items (Medkit, Toolbox, Flashlight are usually best)
     for item in ['Medkit', 'Toolbox', 'Flashlight', 'Key', 'Map', 'Firecracker', 'Fog Vial', 'None']:
         # Try both map types
         for map_type in map_types:
+            # Select valid map areas based on map type
+            if map_type == 'Indoor':
+                valid_map_areas = indoor_map_areas
+            else:  # Outdoor or any other type
+                valid_map_areas = outdoor_map_areas
+            
             # Optimize continuous variables with smart ranges
             for prestige in [100, 50, 30, 20, 10, 0]:  # Higher prestige first
-                # Try optimal map areas (larger maps often better)
-                for map_area in [12000, 11000, 10000, 9000, 8000]:
+                # Try optimal map areas (respecting map type constraints)
+                for map_area in valid_map_areas:
                     # Try powerful add-ons (Yes/No)
                     for powerful_add_ons in ['Yes', 'No']:
                         # Try survivor gender (F/M)
@@ -564,15 +576,29 @@ def evaluate_config(model, scaler, model_info, config):
 
 if __name__ == '__main__':
     import os
-    # Use 0.0.0.0 for Docker container (set via env var), 127.0.0.1 for local development
-    # Check if FLASK_HOST is explicitly set, otherwise default to localhost for local dev
-    host = os.getenv('FLASK_HOST') or '127.0.0.1'
-    port = int(os.getenv('FLASK_PORT', 5000))
+    # Render and other cloud platforms set PORT env var - use that if available
+    # If PORT is set, we're in a cloud environment, so bind to 0.0.0.0
+    port_env = os.getenv('PORT')
+    if port_env:
+        # Cloud deployment (Render, Heroku, etc.) - bind to all interfaces
+        host = '0.0.0.0'
+        port = int(port_env)
+        print(f"[CLOUD] Detected PORT environment variable: {port}")
+    else:
+        # Local development - use FLASK_HOST or default to localhost
+        host = os.getenv('FLASK_HOST') or '127.0.0.1'
+        port = int(os.getenv('FLASK_PORT', 5000))
+    
     debug = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'  # Debug mode ON by default for local dev
     
+    print("=" * 60)
     print("Starting Flask server...")
-    print(f"Server running on http://{host}:{port}")
-    if debug:
-        print("Debug mode: ON")
-    app.run(debug=debug, host=host, port=port)
+    print(f"Host: {host}")
+    print(f"Port: {port}")
+    print(f"Debug: {debug}")
+    print(f"Server will be available at http://{host}:{port}")
+    print("=" * 60)
+    
+    # Ensure we bind to the correct host/port
+    app.run(debug=debug, host=host, port=port, use_reloader=False)
 

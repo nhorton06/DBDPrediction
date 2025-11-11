@@ -55,6 +55,44 @@ The system follows a request-response flow with multiple endpoints:
 6. Result is formatted as probability percentage and returned to user
 7. Optional: Optimization endpoint finds best configuration to maximize escape chance
 
+### Architecture Diagram
+
+```
+DBDPrediction/
+├── src/                    # Application source code
+│   ├── app.py             # Flask web application (loads both models, handles predictions)
+│   ├── train_model.py     # Model training script (trains both with_bp and no_bp models)
+│   └── save_model.py      # Model saving utility
+├── tests/                  # Unit and smoke tests
+│   ├── test_api.py        # API endpoint tests
+│   └── test_model.py      # Model architecture tests
+├── templates/              # HTML templates
+│   └── index.html         # Main web interface (includes model toggle switch)
+├── assets/                 # Images and static assets
+│   ├── dbd-logo.png       # Dead by Daylight logo
+│   ├── icon.png           # Favicon
+│   ├── escaped.png        # Escape outcome image
+│   ├── sacrificed.png     # Sacrifice outcome image
+│   ├── *.png              # Various UI icons (steam, anonymous, prestige, items, perks, etc.)
+├── DBDData.csv            # Training data (included in Docker image, not in repo)
+├── Dockerfile             # Docker image definition
+├── docker-compose.yml     # Docker Compose configuration
+├── render.yaml           # Render cloud deployment configuration
+├── requirements.txt       # Python dependencies
+├── run_local.py          # Local development runner (sets up paths, runs Flask)
+├── start.sh              # Container startup script (trains models, then starts Flask)
+├── README.md             # Project documentation
+└── CREDITS.md            # Attribution for game assets and third-party resources
+```
+
+**Generated Model Files** (created at runtime, not in repo):
+- `dbd_model_with_bp.pth` - PyTorch model weights (with bloodpoints)
+- `dbd_model_no_bp.pth` - PyTorch model weights (without bloodpoints)
+- `scaler_with_bp.pkl` - Feature scaler (with bloodpoints)
+- `scaler_no_bp.pkl` - Feature scaler (without bloodpoints)
+- `model_info_with_bp.pkl` - Model metadata (with bloodpoints)
+- `model_info_no_bp.pkl` - Model metadata (without bloodpoints)
+
 ### Data/Models/Services
 
 **Training Data:**
@@ -82,6 +120,7 @@ The system follows a request-response flow with multiple endpoints:
 
 **Services:**
 - **Web Interface**: Flask web server (port 5000) with toggle switch to select between models
+- **Cloud Web Hosting**: Render web app service (Free tier) to host the container online rather than just locally
 - **API Endpoints**:
   - **POST `/predict`**: Main prediction endpoint (includes optional `include_importance` flag for feature influence)
   - **POST `/optimize`**: Optimization endpoint to find best variable configuration (respects 4-perk limit)
@@ -166,7 +205,7 @@ python -m flask run --debug
 - If you see "Model not loaded" errors, make sure you've trained the models first
 - The app looks for models in: current directory, project root, `/app/`, and `project_root/app/`
 
-### Docker (Single Command)
+### Docker
 
 ```bash
 # Build the image
@@ -266,26 +305,28 @@ To update the training data (`DBDData.csv`) on Render:
 
 **Important Notes for Render Deployment:**
 
-- Models train on every deployment/startup (2-5 minutes)
-- Health check start period is set to 300 seconds (5 minutes) to allow for training
+- Models only retrain when the data file (`DBDData.csv`) has changed (detected via file hash comparison)
+- If data is unchanged, startup is fast (~30 seconds) as training is skipped
+- If data has changed, training takes 5-7 minutes on first startup or after data updates
+- Health check start period is set to 300 seconds (5 minutes) to allow for training when needed
 - Ensure your Render plan has sufficient resources for model training
 - The `DBDData.csv` file is included in the Docker image, but you can override it via environment variables or file mounts
-- **Cold Start Warning**: After being inactive for a while, the service may take upwards of 10 minutes to start up: 2-3 minutes for the service to start up, then another 5-7 minutes for model training
+- **Cold Start Warning**: After being inactive for a while, if data has changed, the service may take upwards of 10 minutes to start up: 2-3 minutes for the service to start up, then another 5-7 minutes for model training. If data is unchanged, startup is much faster (~30 seconds).
 
 ## 4) Design Decisions
 
 ### Why This Concept?
 
-**Docker**: Essential for ensuring consistent deployment across different environments. The container includes all dependencies (PyTorch, Flask, scikit-learn) and eliminates "works on my machine" issues. The container automatically trains the model on startup, ensuring it's always up-to-date with the latest data.
+**Docker**: Essential for ensuring consistent deployment across different environments. My container includes all dependencies (PyTorch, Flask, scikit-learn, etc.) and gets rid of the "works on my machine" issues. The container automatically checks for the data file having changed or remained the same, and only retrains the neural network models when necessary (data updated), ensuring faster startup times while keeping models up-to-date.
 
-**Flask**: Chosen for its simplicity and lightweight nature. The application only needs basic routing and JSON handling, making Flask more appropriate than heavier frameworks like Django. The REST API design allows for both web interface and programmatic access.
+**Flask**: The application only needs basic routing and JSON handling, making Flask appropriate for handling this front-end task. The REST API design allows for both web interface and programmatic access. It allows me to create a nice UI and UX for the project that has a coherent theme/scheme while being pretty easily usable.
 
 ### Tradeoffs
 
-**Performance vs. Model Size**: 
-- **Decision**: CPU-only PyTorch for smaller image size and faster builds
-- **Tradeoff**: Smaller image size and faster builds, but no GPU acceleration
-- **Impact**: Build times are quick (~30 seconds), and inference is fast enough for web use (~5-10 ms per prediction)
+**Performance vs. Model Size/Cost**: 
+- **Decision**: CPU-only PyTorch for smaller image size and faster builds, free tier of Render to host cloud webpage
+- **Tradeoff**: Smaller image size and faster builds, but no GPU acceleration. Also makes loading web interface in the cloud take long time, especially because of use of free tier of Render
+- **Impact**: Build times are a bit slower, and inference is fast enough for web use (~5-10 ms per prediction) once it's up and running
 
 **Dual Model Approach**:
 - **Decision**: Train two separate models (with/without bloodpoints) to allow users to choose
@@ -314,7 +355,7 @@ To update the training data (`DBDData.csv`) on Render:
 - Flask automatically handles JSON parsing errors
 - Input ranges validated on frontend (e.g., prestige 0-100)
 - Type checking in prediction endpoint (float conversion with error handling)
-- **Known Limitation**: No explicit rate limiting (acceptable for single-user/local deployment)
+- **Known Limitation**: No explicit rate limiting (acceptable for single-user/local deployment), difficult to implement on a base level sometimes
 
 **PII Handling**:
 - No personally identifiable information collected or stored
@@ -322,36 +363,8 @@ To update the training data (`DBDData.csv`) on Render:
 - No user session tracking or logging of predictions
 
 **Data Privacy**:
-- Training data (`DBDData.csv`) excluded from repository via `.gitignore`
-- Model files excluded to prevent accidental data leakage
-- Users must train their own models or provide their own model files
-
-**Network Security**:
-- HTTP-only deployment (no HTTPS enforcement in current setup)
-- No authentication/authorization mechanisms
-- Suitable for local/development use; production deployment should add HTTPS and access controls
-
-### Ethics
-
-**Algorithmic Fairness**:
-- Model predictions are based solely on in-game statistics and do not discriminate based on real-world characteristics
-- No demographic data (race, age, location) is collected or used in predictions
-- Gender field refers to in-game character gender, not player gender
-
-**Transparency**:
-- Model architecture and training process are documented in the codebase
-- Feature importance analysis allows users to understand which variables influence predictions
-- Optimization feature shows recommended changes, allowing users to make informed decisions
-
-**Data Collection & Usage**:
-- No user data is collected or stored during predictions
-- Training data consists of anonymized gameplay statistics only
-- No tracking, analytics, or user behavior monitoring
-
-**Responsible AI**:
-- Model predictions are probabilistic estimates, not deterministic outcomes
-- Users should understand predictions are based on historical data patterns
-- No guarantee of accuracy; predictions are for informational purposes only
+- Optionally exlude training data (`DBDData.csv`) from repository via `.gitignore` (not entirely necessary at this moment, so I just kept it)
+- Model/weight files (.pkl) excluded to prevent accidental data leakage
 
 ### Operations & Risk Management
 
@@ -409,74 +422,30 @@ To update the training data (`DBDData.csv`) on Render:
 
 ### Screenshots
 
-![Web Interface](assets/web-interface.png)
-*Main prediction interface with form inputs*
+![Sample Inputs/UI 1](assets/sample-input-1.png)
+*Top half of main prediction interface with sample inputs*
 
-![Prediction Result](assets/prediction-result.png)
-*Example prediction showing 67% escape probability*
+![Sample Inputs/UI 2](assets/sample-input-2.png)
+*Bottom half of main prediction interface with sample inputs*
 
-*Note: Place screenshots in `/assets/` directory*
+![Sample Output 1](assets/sample-output-1.png)
+*Example prediction showing 63.57% escape probability and feature influences*
 
-### Sample Outputs
-
-**API Response Example:**
-```json
-{
-  "escape_chance": 67.45,
-  "will_escape": true,
-  "probability": 0.6745,
-  "model_type": "with_bp"
-}
-```
-
-**API Request Example:**
-```json
-{
-  "model_type": "with_bp",
-  "survivor_gender": "Female",
-  "steam_player": "Yes",
-  "anonymous_mode": "No",
-  "item": "Flashlight",
-  "prestige": 5,
-  "map_type": "Indoor",
-  "map_area": 8500,
-  "powerful_add_ons": "Yes",
-  "exhaustion_perk": "Sprint Burst",
-  "chase_perks": 2,
-  "decisive_strike": "Yes",
-  "unbreakable": "No",
-  "off_the_record": "No",
-  "adrenaline": "Yes",
-  "survivor_bp": 25000,
-  "killer_bp": 18000
-}
-```
-
-**Note**: When using `model_type: "no_bp"`, omit `survivor_bp` and `killer_bp` from the request.
-
-**Web Interface:**
-- Model selection toggle switch (With Bloodpoints / Without Bloodpoints)
-- Categorized form sections (Player Characteristics, Items, Map Information, Perks, Match Bloodpoints)
-- Bloodpoints section dynamically shows/hides based on selected model
-- Icon-enhanced inputs for better visual recognition
-- Displays escape probability as percentage
-- Color-coded results (green for escape, red for sacrifice)
-- Outcome images (escaped.png / sacrificed.png)
-- Visual feedback with animations and glow effects
+![Sample Output 2](assets/sample-output-2.png)
+*Example optimization recommendations and apply optimized values button*
 
 ### Performance Notes
 
 **Inference Speed**:
 - CPU: ~5-10 ms per prediction
 - GPU (if available): ~1-2 ms per prediction
-- Network latency: Minimal (local deployment)
+- Network latency: Minimal (local deployment), and also somewhat minimal for 
 
 **Resource Usage**:
-- Container startup: ~2-5 minutes (includes training both models on every startup)
+- Container startup: ~30 seconds if data unchanged, ~2-5 minutes if retraining needed (includes training both models)
 - Training time: ~30-90 seconds per model (varies with early stopping, max 100 epochs)
 - Memory footprint: ~500 MB base + model size (both models loaded in memory)
-- Disk I/O: Minimal (models loaded once after training)
-- **Note**: Models train on every startup to ensure they use the latest data from `DBDData.csv`
+- **Note**: Models only retrain when the data file (`DBDData.csv`) has changed, detected via file hash comparison. This ensures fast startup times while keeping models up-to-date.
 
 ### Validation/Tests
 
@@ -487,8 +456,8 @@ To update the training data (`DBDData.csv`) on Render:
 - Model training includes gradient clipping and NaN handling for stability
 
 **API Testing**:
-- Health check endpoint verified
-- Input validation tested with edge cases (invalid ranges, missing fields)
+- Health check endpoint verified with /health
+- Input validation tested with edge cases (invalid ranges and missing fields are disallowed and will prevent user from progressing, notifying them why)
 - Error handling verified for malformed requests
 
 **Integration Testing**:
@@ -499,64 +468,24 @@ To update the training data (`DBDData.csv`) on Render:
 
 ## 6) What's Next
 
-### Project Structure
-
-```
-DBDPrediction/
-├── src/                    # Application source code
-│   ├── app.py             # Flask web application (loads both models, handles predictions)
-│   ├── train_model.py     # Model training script (trains both with_bp and no_bp models)
-│   └── save_model.py      # Model saving utility
-├── tests/                  # Unit and smoke tests
-│   ├── test_api.py        # API endpoint tests
-│   └── test_model.py      # Model architecture tests
-├── templates/              # HTML templates
-│   └── index.html         # Main web interface (includes model toggle switch)
-├── assets/                 # Images and static assets
-│   ├── dbd-logo.png       # Dead by Daylight logo
-│   ├── icon.png           # Favicon
-│   ├── escaped.png        # Escape outcome image
-│   ├── sacrificed.png     # Sacrifice outcome image
-│   ├── *.png              # Various UI icons (steam, anonymous, prestige, items, perks, etc.)
-├── DBDData.csv            # Training data (included in Docker image, not in repo)
-├── Dockerfile             # Docker image definition
-├── docker-compose.yml     # Docker Compose configuration
-├── render.yaml           # Render cloud deployment configuration
-├── requirements.txt       # Python dependencies
-├── run_local.py          # Local development runner (sets up paths, runs Flask)
-├── start.sh              # Container startup script (trains models, then starts Flask)
-├── README.md             # Project documentation
-└── CREDITS.md            # Attribution for game assets and third-party resources
-```
-
-**Generated Model Files** (created at runtime, not in repo):
-- `dbd_model_with_bp.pth` - PyTorch model weights (with bloodpoints)
-- `dbd_model_no_bp.pth` - PyTorch model weights (without bloodpoints)
-- `scaler_with_bp.pkl` - Feature scaler (with bloodpoints)
-- `scaler_no_bp.pkl` - Feature scaler (without bloodpoints)
-- `model_info_with_bp.pkl` - Model metadata (with bloodpoints)
-- `model_info_no_bp.pkl` - Model metadata (without bloodpoints)
-
 ### Planned Improvements
 
    - Collect more data to improve model accuracy
    - Update data as game patches and updates are released
-   - Add more sophisticated feature engineering
-   - Implement model versioning
-   - Export weights for analyzing potential improvements based off heavier weights (more impactful variables)
-   - Cloud deployment
+   - Add more features if some important ones come to mind while exploring trends and analyzing current data
+   - Collect data through inputs on site to add to data file
 
 ### Recent Updates
 
-   - **Feature Importance Analysis**: Added gradient-based feature influence calculation showing which variables increase/decrease escape chance
-   - **Configuration Optimization**: Added optimization endpoint that finds the best variable combination to maximize escape chance (respects 4-perk limit)
-   - **Perk Validation**: Enforced 4-perk limit validation on both frontend and backend
-   - **Dual Model Support**: Added toggle to switch between models with/without bloodpoint features
-   - **Early Stopping**: Implemented early stopping (max 100 epochs, patience 5) for better generalization
+   - **Feature Importance Analysis**: Added feature influence calculation showing which variables increase/decrease escape chance
+   - **Configuration Optimization**: Added optimization parameters that find the best variable combination to maximize escape chance (while still respecting restrictions like 4-perk limit)
+   - **Perk Validation**: Enforced 4-perk limit validation on both frontend and backend as well as restrictions to chase perks
+   - **Tooltips**: Clarify things like exactly which chase perks or add-ons are being looked at in this model when inputting data
+   - **Dual Model Support**: Added toggle to switch between models with/without bloodpoint features as it may bias the data
+   - **Early Stopping**: Implemented early stopping (max 100 epochs, patience 5) for better generalization and hopefully better training
    - **Docker Hub Deployment**: Image available at `h2x0/dbd-predictor:latest` (models train on startup)
-   - **Cloud Deployment**: `render.yaml` configuration included for easy Render deployment
+   - **Cloud Deployment**: `render.yaml` configuration included for easy Render deployment, available at link near bottom of page
    - **Automatic Model Retraining**: Models automatically retrain on every deployment to use latest data
-   - Added comprehensive perk support (exhaustion, chase, other perks)
    - Added map type and powerful add-ons features
    - Organized UI into categorized sections with model selection toggle
    - Enhanced interface with icons for better UX
@@ -565,12 +494,20 @@ DBDPrediction/
    - Improved code organization (src/ folder structure)
    - Added local development runner (`run_local.py`) for easier local hosting
 
+### Refactors
+
+   - **Extract Model Definition to Shared Module**: `DBDModel` is currently duplicated in both `app.py` and `train_model.py` - should be in a shared `src/models.py` module
+   - **Add Type Hints**: Add type annotations throughout the codebase for better IDE support and type safety
+   - **Potentially Split Large or More Complex Functions**: Break down `optimize_escape_chance()` and `train_model()` into smaller, more testable functions
+
+
 ### Stretch Features
 
-   - It would be nice to be able to eventually collaborate with a group like NightLight to actively analyze auto-screenshots from games from the community rather than just my killer games to increase accuracy
+   - Maybe eventually collaborate with a group like NightLight to actively analyze auto-screenshots from games from the community rather than just my personal killer games to increase accuracy and generalize to the DBD playerbase as a whole rather than just those who go against me specifically
+   - Use inputs on the site from users and have them mark output as correct or incorrect for further model improvements
 
 
-## 7) Links (Required)
+## 7) Links
 
 **GitHub Repo**: https://github.com/nhorton06/DBDPrediction
 

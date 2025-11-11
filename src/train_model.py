@@ -14,6 +14,7 @@ from sklearn.preprocessing import StandardScaler
 import pickle
 import os
 import copy
+import hashlib
 
 # Model architecture (must match app.py)
 class DBDModel(nn.Module):
@@ -448,6 +449,106 @@ def train_model(csv_path='DBDData.csv', output_dir='/app', include_bp=True):
     
     return True
 
+def calculate_csv_hash(csv_path):
+    """Calculate MD5 hash of CSV file to detect changes"""
+    hash_md5 = hashlib.md5()
+    try:
+        with open(csv_path, 'rb') as f:
+            for chunk in iter(lambda: f.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+    except Exception as e:
+        print(f"Warning: Could not calculate hash for {csv_path}: {e}")
+        return None
+
+def get_stored_hash(output_dir):
+    """Get the stored hash of the last trained CSV file"""
+    hash_file = os.path.join(output_dir, 'data_hash.txt')
+    if os.path.exists(hash_file):
+        try:
+            with open(hash_file, 'r') as f:
+                hash_value = f.read().strip()
+                if hash_value:
+                    return hash_value
+                else:
+                    print(f"Warning: Hash file exists but is empty: {hash_file}")
+        except Exception as e:
+            print(f"Warning: Could not read stored hash: {e}")
+            import traceback
+            traceback.print_exc()
+    return None
+
+def save_data_hash(csv_path, output_dir):
+    """Save the hash of the CSV file used for training"""
+    hash_value = calculate_csv_hash(csv_path)
+    if hash_value:
+        hash_file = os.path.join(output_dir, 'data_hash.txt')
+        try:
+            os.makedirs(output_dir, exist_ok=True)
+            with open(hash_file, 'w') as f:
+                f.write(hash_value)
+            print(f"   [OK] Data hash saved to {hash_file}")
+            print(f"   [OK] Hash value: {hash_value[:16]}...")
+            # Verify it was written correctly
+            if os.path.exists(hash_file):
+                with open(hash_file, 'r') as f:
+                    verify_hash = f.read().strip()
+                if verify_hash == hash_value:
+                    print(f"   [OK] Hash file verified successfully")
+                else:
+                    print(f"   [WARNING] Hash file verification failed!")
+        except Exception as e:
+            print(f"Warning: Could not save data hash: {e}")
+            import traceback
+            traceback.print_exc()
+
+def should_retrain(csv_path, output_dir):
+    """Check if models need to be retrained based on CSV file changes"""
+    print(f"Checking retraining status...")
+    print(f"  CSV path: {csv_path}")
+    print(f"  Output directory: {output_dir}")
+    
+    # Check if models exist
+    model_with_bp = os.path.join(output_dir, 'dbd_model_with_bp.pth')
+    model_no_bp = os.path.join(output_dir, 'dbd_model_no_bp.pth')
+    
+    model_with_bp_exists = os.path.exists(model_with_bp)
+    model_no_bp_exists = os.path.exists(model_no_bp)
+    
+    print(f"  Model with BP exists: {model_with_bp_exists} ({model_with_bp})")
+    print(f"  Model without BP exists: {model_no_bp_exists} ({model_no_bp})")
+    
+    if not (model_with_bp_exists and model_no_bp_exists):
+        print("  → Models not found. Training required.")
+        return True
+    
+    # Check if CSV hash has changed
+    current_hash = calculate_csv_hash(csv_path)
+    stored_hash = get_stored_hash(output_dir)
+    
+    hash_file = os.path.join(output_dir, 'data_hash.txt')
+    print(f"  Hash file path: {hash_file}")
+    print(f"  Hash file exists: {os.path.exists(hash_file)}")
+    
+    if current_hash is None:
+        print("  → Warning: Could not calculate CSV hash. Training to be safe.")
+        return True
+    
+    print(f"  Current CSV hash: {current_hash[:16]}...")
+    
+    if stored_hash is None:
+        print(f"  → No stored data hash found at {hash_file}. Training required.")
+        return True
+    
+    print(f"  Stored hash: {stored_hash[:16]}...")
+    
+    if current_hash != stored_hash:
+        print(f"  → Data file has changed (hash mismatch). Retraining required.")
+        return True
+    
+    print(f"  ✓ Data file unchanged. Skipping training.")
+    return False
+
 if __name__ == '__main__':
     import sys
     
@@ -455,6 +556,22 @@ if __name__ == '__main__':
     csv_path = os.getenv('TRAINING_CSV', 'DBDData.csv')
     # Default to current directory for local development, /app for Docker
     output_dir = os.getenv('MODEL_OUTPUT_DIR', '.')
+    
+    # Check if CSV file exists
+    if not os.path.exists(csv_path):
+        print(f"ERROR: Training CSV not found at {csv_path}")
+        sys.exit(1)
+    
+    # Check if retraining is needed
+    print("\n" + "=" * 60)
+    print("Checking if model retraining is needed...")
+    print("=" * 60)
+    
+    if not should_retrain(csv_path, output_dir):
+        print("\n" + "=" * 60)
+        print("[SKIP] Models are up to date. No retraining needed.")
+        print("=" * 60)
+        sys.exit(0)
     
     # Train both models: with BP and without BP
     print("\n" + "=" * 60)
@@ -476,6 +593,9 @@ if __name__ == '__main__':
     if not success2:
         print("ERROR: Training model without BP failed!")
         sys.exit(1)
+    
+    # Save data hash after successful training
+    save_data_hash(csv_path, output_dir)
     
     print("\n" + "=" * 60)
     print("[SUCCESS] Both models trained and saved successfully!")

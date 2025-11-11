@@ -14,8 +14,7 @@ services:
         value: app.py
       - key: FLASK_HOST
         value: 0.0.0.0
-      - key: FLASK_PORT
-        value: 5000
+      # Note: PORT is automatically set by Render - app.py will use it
       - key: TRAINING_CSV
         value: /app/DBDData.csv
       - key: MODEL_OUTPUT_DIR
