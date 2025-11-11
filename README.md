@@ -325,12 +325,58 @@ To update the training data (`DBDData.csv`) on Render:
 - Model files excluded to prevent accidental data leakage
 - Users must train their own models or provide their own model files
 
-### Operations
+**Network Security**:
+- HTTP-only deployment (no HTTPS enforcement in current setup)
+- No authentication/authorization mechanisms
+- Suitable for local/development use; production deployment should add HTTPS and access controls
 
-**Logs/Metrics**:
-- Flask development server logs to stdout (captured by Docker)
-- Health check endpoint (`/health`) for container monitoring
-- **Known Limitation**: No structured logging or metrics collection (suitable for MVP)
+### Ethics
+
+**Algorithmic Fairness**:
+- Model predictions are based solely on in-game statistics and do not discriminate based on real-world characteristics
+- No demographic data (race, age, location) is collected or used in predictions
+- Gender field refers to in-game character gender, not player gender
+
+**Transparency**:
+- Model architecture and training process are documented in the codebase
+- Feature importance analysis allows users to understand which variables influence predictions
+- Optimization feature shows recommended changes, allowing users to make informed decisions
+
+**Data Collection & Usage**:
+- No user data is collected or stored during predictions
+- Training data consists of anonymized gameplay statistics only
+- No tracking, analytics, or user behavior monitoring
+
+**Responsible AI**:
+- Model predictions are probabilistic estimates, not deterministic outcomes
+- Users should understand predictions are based on historical data patterns
+- No guarantee of accuracy; predictions are for informational purposes only
+
+### Operations & Risk Management
+
+**Operational Risks**:
+1. **Model Training Failures**: If training fails on startup, container will not serve requests
+   - **Mitigation**: Health check endpoint reports model status; container will fail health checks if models aren't loaded
+   - **Recovery**: Manual container restart or redeployment
+2. **Resource Exhaustion**: Model training on startup consumes significant CPU/memory
+   - **Mitigation**: Health check start period set to 300s (5 minutes) to allow training time
+   - **Risk**: On resource-constrained systems (e.g., Render free tier with 512MB RAM), training may fail or timeout
+3. **Data Availability**: Missing or corrupted `DBDData.csv` will cause training to fail
+   - **Mitigation**: CSV file included in Docker image; can be overridden via volume mount
+4. **Single Point of Failure**: Single-container deployment has no redundancy
+   - **Mitigation**: Stateless design allows easy redeployment; no data loss risk
+5. **No Backup/Recovery**: Model files are generated at runtime and not persisted
+   - **Impact**: Container restart triggers retraining (intentional design for fresh models)
+
+**Monitoring & Observability**:
+- **Health Checks**: `/health` endpoint reports model loading status for both models
+- **Logging**: Flask development server logs all requests to stdout (captured by Docker)
+- **Limitations**: 
+  - No structured logging (JSON format)
+  - No metrics collection (request rates, latency, error rates)
+  - No alerting mechanisms
+  - No distributed tracing
+- **Future Improvements**: Could add Prometheus metrics, structured logging (JSON), and error tracking (Sentry)
 
 **Scaling Considerations**:
 - Current design: Single-container deployment
@@ -338,10 +384,17 @@ To update the training data (`DBDData.csv`) on Render:
 - **Future**: Could add Redis for session management, gunicorn for multi-worker support
 
 **Resource Footprint**:
-- Container image: ~500 MB - 1 GB (Python 3.11 slim base with dependencies)
-- Memory usage: ~500 MB - 1 GB at runtime
-- CPU: Minimal for inference (single-threaded predictions)
-- GPU: Not currently used (CPU-only PyTorch)
+- **Container Image**: ~500 MB - 1 GB (Python 3.11 slim base with dependencies)
+- **Memory Usage**:
+  - Runtime (inference only): ~500 MB - 1 GB
+  - During training (startup): ~1-2 GB peak (both models training simultaneously)
+  - Model storage: ~20-100 MB for both models and scalers
+- **CPU Usage**:
+  - Inference: Minimal (~5-10 ms per prediction, single-threaded)
+  - Training: High CPU usage during startup (2-5 minutes, both models)
+- **Disk I/O**: Minimal after startup (models loaded into memory)
+- **GPU**: Not currently used (CPU-only PyTorch)
+- **Network**: Minimal bandwidth (small JSON requests/responses)
 
 **Known Limitations**:
 1. Both models train on every container startup (adds ~2-5 minutes to startup time) - this is intentional to ensure models use the latest data
