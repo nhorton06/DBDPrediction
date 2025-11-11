@@ -44,8 +44,6 @@ The system follows a request-response flow with multiple endpoints:
 3. Feature importance (magnitude and direction) is computed
 4. Results are displayed showing which features increase/decrease escape chance
 
-*Note: A visual architecture diagram can be added to `/assets/architecture.png` if needed*
-
 **System Flow:**
 1. User inputs game parameters via web interface or API
 2. Flask application receives and validates input (perk count, data types, ranges)
