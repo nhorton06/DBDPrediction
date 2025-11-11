@@ -441,8 +441,97 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
     """Optimize variables to maximize escape chance using smart search, respecting 4-perk limit"""
     import itertools
     
+    # Realm to maps mapping (same as frontend)
+    realm_to_maps = {
+        "The MacMillan Estate": [
+            {"name": "Coal Tower", "fullName": "The MacMillan Estate - Coal Tower", "area": 8448, "type": "Outdoor"},
+            {"name": "Groaning Storehouse", "fullName": "The MacMillan Estate - Groaning Storehouse", "area": 9984, "type": "Outdoor"},
+            {"name": "Ironworks of Misery", "fullName": "The MacMillan Estate - Ironworks of Misery", "area": 10240, "type": "Outdoor"},
+            {"name": "Shelter Woods", "fullName": "The MacMillan Estate - Shelter Woods", "area": 11264, "type": "Outdoor"},
+            {"name": "Suffocation Pit", "fullName": "The MacMillan Estate - Suffocation Pit", "area": 10240, "type": "Outdoor"}
+        ],
+        "Autohaven Wreckers": [
+            {"name": "Azarov's Resting Place", "fullName": "Autohaven Wreckers - Azarov's Resting Place", "area": 11264, "type": "Outdoor"},
+            {"name": "Blood Lodge", "fullName": "Autohaven Wreckers - Blood Lodge", "area": 9984, "type": "Outdoor"},
+            {"name": "Gas Heaven", "fullName": "Autohaven Wreckers - Gas Heaven", "area": 9984, "type": "Outdoor"},
+            {"name": "Wreckers' Yard", "fullName": "Autohaven Wreckers - Wreckers' Yard", "area": 9216, "type": "Outdoor"},
+            {"name": "Wretched Shop", "fullName": "Autohaven Wreckers - Wretched Shop", "area": 10496, "type": "Outdoor"}
+        ],
+        "Coldwind Farm": [
+            {"name": "Fractured Cowshed", "fullName": "Coldwind Farm - Fractured Cowshed", "area": 9728, "type": "Outdoor"},
+            {"name": "Rancid Abattoir", "fullName": "Coldwind Farm - Rancid Abattoir", "area": 8960, "type": "Outdoor"},
+            {"name": "Rotten Fields", "fullName": "Coldwind Farm - Rotten Fields", "area": 10240, "type": "Outdoor"},
+            {"name": "The Thompson House", "fullName": "Coldwind Farm - The Thompson House", "area": 9728, "type": "Outdoor"},
+            {"name": "Torment Creek", "fullName": "Coldwind Farm - Torment Creek", "area": 10752, "type": "Outdoor"}
+        ],
+        "Crotus Prenn Asylum": [
+            {"name": "Disturbed Ward", "fullName": "Crotus Prenn Asylum - Disturbed Ward", "area": 11008, "type": "Outdoor"},
+            {"name": "Father Campbell's Chapel", "fullName": "Crotus Prenn Asylum - Father Campbell's Chapel", "area": 8960, "type": "Outdoor"}
+        ],
+        "Haddonfield": [
+            {"name": "Lampkin Lane", "fullName": "Haddonfield - Lampkin Lane", "area": 8448, "type": "Outdoor"}
+        ],
+        "Backwater Swamp": [
+            {"name": "The Pale Rose", "fullName": "Backwater Swamp - The Pale Rose", "area": 10304, "type": "Outdoor"},
+            {"name": "Grim Pantry", "fullName": "Backwater Swamp - Grim Pantry", "area": 10752, "type": "Outdoor"}
+        ],
+        "Red Forest": [
+            {"name": "Mother's Dwelling", "fullName": "Red Forest - Mother's Dwelling", "area": 9728, "type": "Outdoor"},
+            {"name": "The Temple of Purgation", "fullName": "Red Forest - The Temple of Purgation", "area": 8704, "type": "Outdoor"}
+        ],
+        "Springwood": [
+            {"name": "Badham Preschool I", "fullName": "Springwood - Badham Preschool I", "area": 9216, "type": "Outdoor"}
+        ],
+        "Yamaoka Estate": [
+            {"name": "Family Residence", "fullName": "Yamaoka Estate - Family Residence", "area": 9984, "type": "Outdoor"},
+            {"name": "Sanctum of Wrath", "fullName": "Yamaoka Estate - Sanctum of Wrath", "area": 9984, "type": "Outdoor"}
+        ],
+        "Ormond": [
+            {"name": "Mount Ormond Resort", "fullName": "Ormond - Mount Ormond Resort", "area": 9984, "type": "Outdoor"},
+            {"name": "Ormond Lake Mine", "fullName": "Ormond - Ormond Lake Mine", "area": 8448, "type": "Outdoor"}
+        ],
+        "Grave of Glenvale": [
+            {"name": "Dead Dawg Saloon", "fullName": "Grave of Glenvale - Dead Dawg Saloon", "area": 8704, "type": "Outdoor"}
+        ],
+        "Forsaken Boneyard": [
+            {"name": "Dead Sands", "fullName": "Forsaken Boneyard - Dead Sands", "area": 8960, "type": "Outdoor"},
+            {"name": "Eyrie of Crows", "fullName": "Forsaken Boneyard - Eyrie of Crows", "area": 9472, "type": "Outdoor"}
+        ],
+        "Withered Isle": [
+            {"name": "Garden of Joy", "fullName": "Withered Isle - Garden of Joy", "area": 10496, "type": "Outdoor"},
+            {"name": "Greenville Square", "fullName": "Withered Isle - Greenville Square", "area": 10240, "type": "Outdoor"},
+            {"name": "Freddy Fazbear's Pizza", "fullName": "Withered Isle - Freddy Fazbear's Pizza", "area": 9984, "type": "Outdoor"},
+            {"name": "Fallen Refuge", "fullName": "Withered Isle - Fallen Refuge", "area": 8704, "type": "Outdoor"}
+        ],
+        "The Decimated Borgo": [
+            {"name": "The Shattered Square", "fullName": "The Decimated Borgo - The Shattered Square", "area": 9216, "type": "Outdoor"},
+            {"name": "Forgotten Ruins", "fullName": "The Decimated Borgo - Forgotten Ruins", "area": 8448, "type": "Outdoor"}
+        ],
+        "Dvarka Deepwood": [
+            {"name": "Toba Landing", "fullName": "Dvarka Deepwood - Toba Landing", "area": 8704, "type": "Outdoor"},
+            {"name": "Nostromo Wreckage", "fullName": "Dvarka Deepwood - Nostromo Wreckage", "area": 9728, "type": "Outdoor"}
+        ],
+        "Léry's Memorial Institute": [
+            {"name": "Treatment Theatre", "fullName": "Léry's Memorial Institute - Treatment Theatre", "area": 6272, "type": "Indoor"}
+        ],
+        "Gideon Meat Plant": [
+            {"name": "The Game", "fullName": "Gideon Meat Plant - The Game", "area": 9088, "type": "Indoor"}
+        ],
+        "Hawkins National Laboratory": [
+            {"name": "The Underground Complex", "fullName": "Hawkins National Laboratory - The Underground Complex", "area": 8832, "type": "Indoor"}
+        ],
+        "Silent Hill": [
+            {"name": "Midwich Elementary School", "fullName": "Silent Hill - Midwich Elementary School", "area": 7264, "type": "Indoor"}
+        ],
+        "Raccoon City": [
+            {"name": "Raccoon City Police Station East Wing", "fullName": "Raccoon City - Raccoon City Police Station East Wing", "area": 10000, "type": "Indoor"},
+            {"name": "Raccoon City Police Station West Wing", "fullName": "Raccoon City - Raccoon City Police Station West Wing", "area": 11000, "type": "Indoor"}
+        ]
+    }
+    
     best_config = current_data.copy()
     best_score = -float('inf')
+    best_realm = None
     
     # First, evaluate current configuration (if valid)
     current_perk_count = count_total_perks(current_data)
@@ -481,81 +570,81 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
                             'other_perks': combo
                         })
     
-    # Define valid map areas based on map type
-    # Indoor maps can be: 11000, 10000, 9088, 8832, 7264, or 6272
-    # Outdoor maps can be: 11264, 11008, 10752, 10496, 10304, 10240, 9984, 9728, 9472, 9216, 8960, 8704, 8448
-    indoor_map_areas = [11000, 10000, 9088, 8832, 7264, 6272]
-    outdoor_map_areas = [11264, 11008, 10752, 10496, 10304, 10240, 9984, 9728, 9472, 9216, 8960, 8704, 8448]
-    
     # Try best items (Medkit, Toolbox, Flashlight are usually best)
     for item in ['Medkit', 'Toolbox', 'Flashlight', 'Key', 'Map', 'Firecracker', 'Fog Vial', 'None']:
-        # Try both map types
-        for map_type in map_types:
-            # Select valid map areas based on map type
-            if map_type == 'Indoor':
-                valid_map_areas = indoor_map_areas
-            else:  # Outdoor or any other type
-                valid_map_areas = outdoor_map_areas
+        # Try all realms (instead of individual maps)
+        # Since offerings affect realms, not specific maps, we optimize by realm
+        for realm_name, maps in realm_to_maps.items():
+            # Use the first map from the realm as representative
+            # (All maps in a realm have the same type, area differences are minor)
+            representative_map = maps[0]
+            map_type = representative_map['type']
+            map_area = representative_map['area']
             
             # Optimize continuous variables with smart ranges
             for prestige in [100, 50, 30, 20, 10, 0]:  # Higher prestige first
-                # Try optimal map areas (respecting map type constraints)
-                for map_area in valid_map_areas:
-                    # Try powerful add-ons (Yes/No)
-                    for powerful_add_ons in ['Yes', 'No']:
-                        # Try survivor gender (F/M)
-                        for survivor_gender in ['F', 'M']:
-                            # Try steam player (Yes/No)
-                            for steam_player in ['Yes', 'No']:
-                                # Try anonymous mode (Yes/No)
-                                for anonymous_mode in ['Yes', 'No']:
-                                    # Try valid perk configurations
-                                    for perk_config in valid_perk_configs[:50]:  # Limit to first 50 to avoid too many iterations
-                                        test_config = current_data.copy()
-                                        test_config['item'] = item
-                                        test_config['map_type'] = map_type
-                                        test_config['prestige'] = prestige
-                                        test_config['map_area'] = map_area
-                                        test_config['powerful_add_ons'] = powerful_add_ons
-                                        test_config['survivor_gender'] = survivor_gender
-                                        test_config['steam_player'] = steam_player
-                                        test_config['anonymous_mode'] = anonymous_mode
-                                        test_config['exhaustion_perk'] = perk_config['exhaustion_perk']
-                                        test_config['chase_perks'] = perk_config['chase_perks']
+                # Try powerful add-ons (Yes/No)
+                for powerful_add_ons in ['Yes', 'No']:
+                    # Try survivor gender (F/M)
+                    for survivor_gender in ['F', 'M']:
+                        # Try steam player (Yes/No)
+                        for steam_player in ['Yes', 'No']:
+                            # Try anonymous mode (Yes/No)
+                            for anonymous_mode in ['Yes', 'No']:
+                                # Try valid perk configurations
+                                for perk_config in valid_perk_configs[:50]:  # Limit to first 50 to avoid too many iterations
+                                    test_config = current_data.copy()
+                                    test_config['item'] = item
+                                    test_config['map_type'] = map_type
+                                    test_config['prestige'] = prestige
+                                    test_config['map_area'] = map_area
+                                    test_config['powerful_add_ons'] = powerful_add_ons
+                                    test_config['survivor_gender'] = survivor_gender
+                                    test_config['steam_player'] = steam_player
+                                    test_config['anonymous_mode'] = anonymous_mode
+                                    test_config['exhaustion_perk'] = perk_config['exhaustion_perk']
+                                    test_config['chase_perks'] = perk_config['chase_perks']
+                                    
+                                    # Set other perks
+                                    for perk in ['decisive_strike', 'unbreakable', 'off_the_record', 'adrenaline']:
+                                        test_config[perk] = 'Yes' if perk in perk_config['other_perks'] else 'No'
+                                
+                                    # Verify perk count is exactly 4
+                                    if count_total_perks(test_config) != 4:
+                                        continue
+                                    
+                                    if use_bp:
+                                        # Try higher BP values first (usually better)
+                                        for survivor_bp in [30000, 25000, 20000, 15000]:
+                                            test_config['survivor_bp'] = survivor_bp
+                                            for killer_bp in [10000, 15000, 20000, 25000]:  # Lower killer BP better
+                                                test_config['killer_bp'] = killer_bp
+                                                
+                                                score = evaluate_config(model, scaler, model_info, test_config)
+                                                if score > best_score:
+                                                    best_score = score
+                                                    best_config = test_config.copy()
+                                                    best_realm = realm_name
+                                                
+                                                # Early exit if we find very high score
+                                                if best_score > 0.90:
+                                                    best_config['realm'] = realm_name
+                                                    return best_config
+                                    else:
+                                        score = evaluate_config(model, scaler, model_info, test_config)
+                                        if score > best_score:
+                                            best_score = score
+                                            best_config = test_config.copy()
+                                            best_realm = realm_name
                                         
-                                        # Set other perks
-                                        for perk in ['decisive_strike', 'unbreakable', 'off_the_record', 'adrenaline']:
-                                            test_config[perk] = 'Yes' if perk in perk_config['other_perks'] else 'No'
-                            
-                                        # Verify perk count is exactly 4
-                                        if count_total_perks(test_config) != 4:
-                                            continue
-                                        
-                                        if use_bp:
-                                            # Try higher BP values first (usually better)
-                                            for survivor_bp in [30000, 25000, 20000, 15000]:
-                                                test_config['survivor_bp'] = survivor_bp
-                                                for killer_bp in [10000, 15000, 20000, 25000]:  # Lower killer BP better
-                                                    test_config['killer_bp'] = killer_bp
-                                                    
-                                                    score = evaluate_config(model, scaler, model_info, test_config)
-                                                    if score > best_score:
-                                                        best_score = score
-                                                        best_config = test_config.copy()
-                                                    
-                                                    # Early exit if we find very high score
-                                                    if best_score > 0.90:
-                                                        return best_config
-                                        else:
-                                            score = evaluate_config(model, scaler, model_info, test_config)
-                                            if score > best_score:
-                                                best_score = score
-                                                best_config = test_config.copy()
-                                            
-                                            # Early exit if we find very high score
-                                            if best_score > 0.90:
-                                                return best_config
+                                        # Early exit if we find very high score
+                                        if best_score > 0.90:
+                                            best_config['realm'] = realm_name
+                                            return best_config
     
+    # Add realm to best config before returning
+    if best_realm:
+        best_config['realm'] = best_realm
     return best_config
 
 def evaluate_config(model, scaler, model_info, config):

@@ -2066,6 +2066,21 @@
                     // If negative gradient, Male (0) increases escape chance, so show "Male"
                     const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
                     displayName = isPositive ? 'Female' : 'Male';
+                } else if (lowerFeature.includes('prestige')) {
+                    fieldName = 'prestige';
+                    // Determine direction from gradient
+                    const isPositive = typeof info === 'object' ? 
+                        (info.raw_gradient !== undefined && info.raw_gradient > 0) || 
+                        (info.direction === 'positive') : null;
+                    // If positive gradient, higher prestige increases escape chance, so show "Higher Prestige"
+                    // If negative gradient, lower prestige increases escape chance, so show "Lower Prestige"
+                    if (isPositive === true) {
+                        displayName = 'Higher Prestige';
+                    } else if (isPositive === false) {
+                        displayName = 'Lower Prestige';
+                    } else {
+                        displayName = 'Prestige'; // Fallback if direction unknown
+                    }
                 } else if (lowerFeature.includes('brought_')) {
                     fieldName = 'item';
                     // Remove "Brought_" prefix
@@ -2255,6 +2270,7 @@
                 ['prestige', 'Prestige'],
                 ['item', 'Item'],
                 ['powerful_add_ons', 'Powerful Add-ons'],
+                ['realm', 'Realm'],
                 ['map_type', 'Map Type'],
                 ['map_area', 'Map Area'],
                 ['exhaustion_perk', 'Exhaustion Perk'],
@@ -2271,8 +2287,19 @@
             }
             
             let hasChanges = false; // Track if there are any changes to show
+            let showRealm = false; // Track if we're showing realm
+            
+            // Check if realm is in the optimized config
+            if (config.realm !== undefined) {
+                showRealm = true;
+            }
             
             for (const [key, label] of fields) {
+                // Skip map_area and map_type if we're showing realm (realm auto-fills those)
+                if (showRealm && (key === 'map_area' || key === 'map_type')) {
+                    continue;
+                }
+                
                 const currentEl = document.getElementById(key);
                 if (currentEl && config[key] !== undefined) {
                     // Get the actual selected value - ONLY use .value property, never .textContent
@@ -2288,6 +2315,13 @@
                     } else if (currentEl.tagName === 'INPUT') {
                         // For input elements, get the value
                         currentVal = currentEl.value || '';
+                        // For realm input, also check the hidden realm_value field
+                        if (key === 'realm') {
+                            const realmValueEl = document.getElementById('realm_value');
+                            if (realmValueEl && realmValueEl.value) {
+                                currentVal = realmValueEl.value;
+                            }
+                        }
                     }
                     
                     let optVal = config[key];
@@ -2415,6 +2449,20 @@
                 if (exhaustionEl) exhaustionEl.value = config.exhaustion_perk;
             }
             
+            // Handle realm first (if provided), which will auto-fill map_type and map_area
+            if (config.realm !== undefined) {
+                const realmEl = document.getElementById('realm');
+                const realmValueEl = document.getElementById('realm_value');
+                if (realmEl) {
+                    realmEl.value = config.realm;
+                    if (realmValueEl) realmValueEl.value = config.realm;
+                    // Trigger change event to auto-fill map fields
+                    const event = new Event('input', { bubbles: true });
+                    realmEl.dispatchEvent(event);
+                }
+            }
+            
+            // Set map_type and map_area (these may have been auto-filled by realm, but set them explicitly to be sure)
             if (config.map_type !== undefined) {
                 const mapTypeEl = document.getElementById('map_type');
                 if (mapTypeEl) mapTypeEl.value = config.map_type;
