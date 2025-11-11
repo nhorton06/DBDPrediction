@@ -270,6 +270,7 @@ To update the training data (`DBDData.csv`) on Render:
 - Health check start period is set to 300 seconds (5 minutes) to allow for training
 - Ensure your Render plan has sufficient resources for model training
 - The `DBDData.csv` file is included in the Docker image, but you can override it via environment variables or file mounts
+- **Cold Start Warning**: After being inactive for a while, the service may take upwards of 10 minutes to start up: 2-3 minutes for the service to start up, then another 5-7 minutes for model training
 
 ## 4) Design Decisions
 
