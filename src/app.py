@@ -908,13 +908,17 @@ def statistics():
                 
                 # Calculate escape rates by feature value
                 escape_by_value = {}
+                escape_counts_by_value = {}
                 for value in value_counts.keys():
                     subset = dataset[dataset[feature] == value]
                     if len(subset) > 0:
                         escape_count = len(subset[subset['Result'] == 'Escape'])
                         escape_rate = (escape_count / len(subset)) * 100
                         escape_by_value[str(value)] = escape_rate
+                        escape_counts_by_value[str(value)] = escape_count
                 escape_rates[feature] = escape_by_value
+                # Store escape counts separately for tooltip display
+                feature_stats[feature]['escape_counts'] = escape_counts_by_value
         
         total_games_count = len(dataset)
         total_escapes_count = len(dataset[dataset['Result'] == 'Escape'])

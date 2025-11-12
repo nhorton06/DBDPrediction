@@ -1230,7 +1230,7 @@
             <button type="submit" class="submit-btn">CALCULATE YOUR FATE</button>
             
             <div style="margin-top: 15px; text-align: center;">
-                <label style="color: #e0e0e0; font-size: 0.9em; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                <label style="color: var(--text-primary); font-size: 0.9em; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
                     <input type="checkbox" id="includeImportance" style="width: auto; margin: 0;">
                     Show feature influence
                 </label>
@@ -3460,6 +3460,10 @@
                         if (ctx) {
                             const labels = Object.keys(rates);
                             const values = Object.values(rates);
+                            // Get escape counts for this feature if available
+                            const escapeCounts = stats.feature_stats && stats.feature_stats[feature] && stats.feature_stats[feature].escape_counts 
+                                ? stats.feature_stats[feature].escape_counts 
+                                : {};
                             
                             new Chart(ctx, {
                                 type: 'bar',
@@ -3486,6 +3490,11 @@
                                         tooltip: {
                                             callbacks: {
                                                 label: function(context) {
+                                                    const label = labels[context.dataIndex];
+                                                    const escapeCount = escapeCounts[label];
+                                                    if (escapeCount !== undefined) {
+                                                        return `Escape Rate: ${context.parsed.y.toFixed(1)}% (${escapeCount} escapes)`;
+                                                    }
                                                     return `Escape Rate: ${context.parsed.y.toFixed(1)}%`;
                                                 }
                                             },
