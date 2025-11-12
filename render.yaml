@@ -19,3 +19,6 @@ services:
         value: /app/DBDData.csv
       - key: MODEL_OUTPUT_DIR
         value: /app
+      # Skip training on Render - use pre-trained models from Docker image for fast startup
+      - key: SKIP_TRAINING
+        value: "true"

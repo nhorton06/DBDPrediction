@@ -1896,6 +1896,9 @@
                 }
             }
             
+            // Make selectMap globally accessible for applyOptimization
+            window.selectMap = selectMap;
+            
             mapInput.addEventListener('input', function() {
                 const query = this.value;
                 const results = filterMaps(query);
@@ -2068,6 +2071,16 @@
             const totalPerks = countPerks();
             if (totalPerks > 4) {
                 errorDiv.textContent = `ERROR: Too many perks selected (${totalPerks}/4). Survivors can only have 4 perks total.`;
+                errorDiv.style.display = 'block';
+                resultDiv.style.display = 'none';
+                loadingDiv.style.display = 'none';
+                return;
+            }
+            
+            // Validate map name is filled
+            const mapNameValue = document.getElementById('map_name_value');
+            if (!mapNameValue || !mapNameValue.value || mapNameValue.value.trim() === '') {
+                errorDiv.textContent = `ERROR: Please select a map name. Type to search and select a map from the dropdown.`;
                 errorDiv.style.display = 'block';
                 resultDiv.style.display = 'none';
                 loadingDiv.style.display = 'none';
@@ -2806,6 +2819,44 @@
                 if (mapTypeEl) mapTypeEl.value = config.map_type;
             }
             
+            if (config.map_area !== undefined) {
+                const mapAreaEl = document.getElementById('map_area');
+                if (mapAreaEl) mapAreaEl.value = config.map_area;
+            }
+            
+            // Set map_name based on map_area - find the map that matches the optimized area
+            if (config.map_area !== undefined) {
+                const mapInput = document.getElementById('map_name');
+                const mapValue = document.getElementById('map_name_value');
+                const mapAreaEl = document.getElementById('map_area');
+                
+                if (mapInput && mapValue && mapAreaEl) {
+                    const targetArea = parseFloat(config.map_area);
+                    let foundMap = null;
+                    
+                    // Find any map that matches the optimized area value
+                    for (const [fullName, mapData] of Object.entries(mapNameToData)) {
+                        const mapAreaNum = parseFloat(mapData.area);
+                        if (mapAreaNum === targetArea) {
+                            foundMap = fullName;
+                            break;
+                        }
+                    }
+                    
+                    // If we found a map matching the area, set it
+                    if (foundMap) {
+                        mapValue.value = foundMap;
+                        const mapNameOnly = foundMap.includes(' - ') ? foundMap.split(' - ').slice(1).join(' - ') : foundMap;
+                        mapInput.value = mapNameOnly;
+                        
+                        // Trigger map area validation update
+                        if (typeof updateMapAreaValidation === 'function') {
+                            updateMapAreaValidation();
+                        }
+                    }
+                }
+            }
+            
             if (config.prestige !== undefined) {
                 const prestigeEl = document.getElementById('prestige');
                 if (prestigeEl) prestigeEl.value = config.prestige;
@@ -2814,11 +2865,6 @@
             if (config.chase_perks !== undefined) {
                 const chasePerksEl = document.getElementById('chase_perks');
                 if (chasePerksEl) chasePerksEl.value = config.chase_perks;
-            }
-            
-            if (config.map_area !== undefined) {
-                const mapAreaEl = document.getElementById('map_area');
-                if (mapAreaEl) mapAreaEl.value = config.map_area;
             }
             
             if (config.powerful_add_ons !== undefined) {

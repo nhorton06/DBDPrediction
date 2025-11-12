@@ -16,15 +16,23 @@ if [ ! -f "$CSV_PATH" ]; then
     exit 1
 fi
 
-echo "Step 1: Checking if model training is needed"
-echo "----------------------------------------"
-python train_model.py
+# Check if training should be skipped (for Render/production deployments)
+if [ "${SKIP_TRAINING:-false}" = "true" ]; then
+    echo "Step 1: Skipping model training (SKIP_TRAINING=true)"
+    echo "----------------------------------------"
+    echo "Using pre-trained models from Docker image"
+    echo ""
+else
+    echo "Step 1: Checking if model training is needed"
+    echo "----------------------------------------"
+    python train_model.py
 
-if [ $? -ne 0 ]; then
-    echo "ERROR: Model training failed"
-    exit 1
+    if [ $? -ne 0 ]; then
+        echo "ERROR: Model training failed"
+        exit 1
+    fi
+    echo ""
 fi
-echo ""
 
 echo "Step 2: Starting Flask application"
 echo "----------------------------------------"

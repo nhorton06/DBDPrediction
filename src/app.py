@@ -416,6 +416,18 @@ def optimize():
                            'DHBL', 'Balanced Landing', 'Background Player', 'Head On']
         map_types = model_info.get('map_types', ['Outdoor', 'Indoor'])
         
+        # Calculate current escape chance for comparison
+        current_features = build_feature_vector(current_data, model_info)
+        current_features_array = current_features.reshape(1, -1)
+        current_features_scaled = scaler.transform(current_features_array)
+        current_features_tensor = torch.FloatTensor(current_features_scaled)
+        
+        with torch.no_grad():
+            current_prediction = model(current_features_tensor)
+            current_probability = torch.sigmoid(current_prediction).item()
+        
+        current_escape_chance = round(current_probability * 100, 2)
+        
         # Optimize using grid search for discrete variables and gradient ascent for continuous
         best_config = optimize_escape_chance(
             model, scaler, model_info, current_data, 
@@ -432,11 +444,21 @@ def optimize():
             opt_prediction = model(opt_features_tensor)
             opt_probability = torch.sigmoid(opt_prediction).item()
         
+        optimized_escape_chance = round(opt_probability * 100, 2)
+        improvement = optimized_escape_chance - current_escape_chance
+        
+        # If optimized config is worse than current, return current config with a note
+        if improvement < 0:
+            # This shouldn't happen, but if it does, return current config
+            best_config = current_data.copy()
+            optimized_escape_chance = current_escape_chance
+            improvement = 0
+        
         return jsonify({
             'optimized_config': best_config,
-            'optimized_escape_chance': round(opt_probability * 100, 2),
-            'current_escape_chance': data.get('current_escape_chance', None),
-            'improvement': round((opt_probability * 100) - (data.get('current_escape_chance', 0)), 2) if data.get('current_escape_chance') else None
+            'optimized_escape_chance': optimized_escape_chance,
+            'current_escape_chance': current_escape_chance,
+            'improvement': round(improvement, 2)
         })
     
     except Exception as e:
@@ -576,77 +598,88 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
                             'other_perks': combo
                         })
     
-    # Try best items (Medkit, Toolbox, Flashlight are usually best)
+    # Try best items (prioritize better items first)
+    # Order items by typical effectiveness: Medkit, Toolbox, Flashlight are usually best
     for item in ['Medkit', 'Toolbox', 'Flashlight', 'Key', 'Map', 'Firecracker', 'Fog Vial', 'None']:
-        # Try all realms (instead of individual maps)
-        # Since offerings affect realms, not specific maps, we optimize by realm
+        # Try all realms and all maps within each realm
+        # Different maps in the same realm have different areas which can affect escape chance
         for realm_name, maps in realm_to_maps.items():
-            # Use the first map from the realm as representative
-            # (All maps in a realm have the same type, area differences are minor)
-            representative_map = maps[0]
-            map_type = representative_map['type']
-            map_area = representative_map['area']
+            # Try multiple maps from each realm (prioritize larger areas for outdoor, appropriate sizes for indoor)
+            # For outdoor maps, larger is usually better; for indoor, we want appropriate sizes
+            sorted_maps = sorted(maps, key=lambda m: m['area'], reverse=True)
+            # Try top 3 maps from each realm to get variety in areas
+            maps_to_try = sorted_maps[:3] if len(sorted_maps) >= 3 else sorted_maps
             
-            # Optimize continuous variables with smart ranges
-            for prestige in [100, 50, 30, 20, 10, 0]:  # Higher prestige first
-                # Try powerful add-ons (Yes/No)
-                for powerful_add_ons in ['Yes', 'No']:
-                    # Try survivor gender (F/M)
-                    for survivor_gender in ['F', 'M']:
-                        # Try steam player (Yes/No)
-                        for steam_player in ['Yes', 'No']:
-                            # Try anonymous mode (Yes/No)
-                            for anonymous_mode in ['Yes', 'No']:
-                                # Try valid perk configurations
-                                for perk_config in valid_perk_configs[:50]:  # Limit to first 50 to avoid too many iterations
-                                    test_config = current_data.copy()
-                                    test_config['item'] = item
-                                    test_config['map_type'] = map_type
-                                    test_config['prestige'] = prestige
-                                    test_config['map_area'] = map_area
-                                    test_config['powerful_add_ons'] = powerful_add_ons
-                                    test_config['survivor_gender'] = survivor_gender
-                                    test_config['steam_player'] = steam_player
-                                    test_config['anonymous_mode'] = anonymous_mode
-                                    test_config['exhaustion_perk'] = perk_config['exhaustion_perk']
-                                    test_config['chase_perks'] = perk_config['chase_perks']
-                                    
-                                    # Set other perks
-                                    for perk in ['decisive_strike', 'unbreakable', 'off_the_record', 'adrenaline']:
-                                        test_config[perk] = 'Yes' if perk in perk_config['other_perks'] else 'No'
-                                
-                                    # Verify perk count is exactly 4
-                                    if count_total_perks(test_config) != 4:
-                                        continue
-                                    
-                                    if use_bp:
-                                        # Try higher BP values first (usually better)
-                                        for survivor_bp in [30000, 25000, 20000, 15000]:
-                                            test_config['survivor_bp'] = survivor_bp
-                                            for killer_bp in [10000, 15000, 20000, 25000]:  # Lower killer BP better
-                                                test_config['killer_bp'] = killer_bp
-                                                
-                                                score = evaluate_config(model, scaler, model_info, test_config)
-                                                if score > best_score:
-                                                    best_score = score
-                                                    best_config = test_config.copy()
-                                                    best_realm = realm_name
-                                                
-                                                # Early exit if we find very high score
-                                                if best_score > 0.90:
-                                                    best_config['realm'] = realm_name
-                                                    return best_config
-                                    else:
-                                        score = evaluate_config(model, scaler, model_info, test_config)
-                                        if score > best_score:
-                                            best_score = score
-                                            best_config = test_config.copy()
-                                            best_realm = realm_name
+            for representative_map in maps_to_try:
+                map_type = representative_map['type']
+                map_area = representative_map['area']
+                
+                # Optimize continuous variables with smart ranges
+                for prestige in [100, 50, 30, 20, 10, 0]:  # Higher prestige first
+                    # Try powerful add-ons (Yes/No)
+                    for powerful_add_ons in ['Yes', 'No']:
+                        # Try survivor gender (F/M)
+                        for survivor_gender in ['F', 'M']:
+                            # Try steam player (Yes/No)
+                            for steam_player in ['Yes', 'No']:
+                                # Try anonymous mode (Yes/No)
+                                for anonymous_mode in ['Yes', 'No']:
+                                    # Try valid perk configurations - use more combinations for better optimization
+                                    # Prioritize perk configs with popular exhaustion perks first
+                                    sorted_perk_configs = sorted(valid_perk_configs, 
+                                        key=lambda p: (p['exhaustion_perk'] in ['Sprint Burst', 'Dead Hard', 'Lithe'], 
+                                                      p['chase_perks']), 
+                                        reverse=True)
+                                    # Try top 100 perk configs instead of just 50
+                                    for perk_config in sorted_perk_configs[:100]:
+                                        test_config = current_data.copy()
+                                        test_config['item'] = item
+                                        test_config['map_type'] = map_type
+                                        test_config['prestige'] = prestige
+                                        test_config['map_area'] = map_area
+                                        test_config['powerful_add_ons'] = powerful_add_ons
+                                        test_config['survivor_gender'] = survivor_gender
+                                        test_config['steam_player'] = steam_player
+                                        test_config['anonymous_mode'] = anonymous_mode
+                                        test_config['exhaustion_perk'] = perk_config['exhaustion_perk']
+                                        test_config['chase_perks'] = perk_config['chase_perks']
                                         
-                                        # Early exit if we find very high score
-                                        if best_score > 0.90:
-                                            best_config['realm'] = realm_name
-                                            return best_config
+                                        # Set other perks
+                                        for perk in ['decisive_strike', 'unbreakable', 'off_the_record', 'adrenaline']:
+                                            test_config[perk] = 'Yes' if perk in perk_config['other_perks'] else 'No'
+                                    
+                                        # Verify perk count is exactly 4
+                                        if count_total_perks(test_config) != 4:
+                                            continue
+                                        
+                                        if use_bp:
+                                            # Try higher BP values first (usually better)
+                                            for survivor_bp in [30000, 25000, 20000, 15000]:
+                                                test_config['survivor_bp'] = survivor_bp
+                                                for killer_bp in [10000, 15000, 20000, 25000]:  # Lower killer BP better
+                                                    test_config['killer_bp'] = killer_bp
+                                                    
+                                                    score = evaluate_config(model, scaler, model_info, test_config)
+                                                    if score > best_score:
+                                                        best_score = score
+                                                        best_config = test_config.copy()
+                                                        best_realm = realm_name
+                                                    
+                                                    # Early exit if we find very high score
+                                                    if best_score > 0.90:
+                                                        best_config['realm'] = realm_name
+                                                        return best_config
+                                        else:
+                                            score = evaluate_config(model, scaler, model_info, test_config)
+                                            if score > best_score:
+                                                best_score = score
+                                                best_config = test_config.copy()
+                                                best_realm = realm_name
+                                            
+                                            # Early exit if we find very high score
+                                            if best_score > 0.90:
+                                                best_config['realm'] = realm_name
+                                                return best_config
     
     # Add realm to best config before returning
     if best_realm:

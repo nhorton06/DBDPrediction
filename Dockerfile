@@ -39,19 +39,29 @@ COPY DBDData.csv ./
 # Convert line endings and make startup script executable
 RUN dos2unix start.sh && chmod +x start.sh
 
-# Note: Models are NOT pre-trained during build
-# Models will be trained on container startup only if the data file has changed (detected via hash comparison)
-# This allows updating DBDData.csv and having models automatically retrain with new data
-# If data is unchanged, startup is fast (~30 seconds) as training is skipped
-# DBDData.csv is included in the image, but can be overridden via volume mount or environment variable
+# Train models during Docker build (for fast startup in production)
+# Models are pre-trained and included in the image
+# This allows Render deployments to start quickly without retraining
+# Local Docker containers can still retrain by setting SKIP_TRAINING=false or omitting it
+# Set MODEL_OUTPUT_DIR to /app to ensure models are saved in the correct location
+RUN echo "Training models during Docker build..." && \
+    MODEL_OUTPUT_DIR=/app TRAINING_CSV=/app/DBDData.csv python train_model.py && \
+    echo "Models trained successfully during build!" && \
+    ls -lh /app/*.pth /app/*.pkl 2>/dev/null || echo "Warning: Model files not found in /app"
+
+# Note: Models are pre-trained during Docker build for fast startup times
+# - Render deployments use pre-trained models (SKIP_TRAINING=true) for fast startup (~30-60 seconds)
+# - Local Docker containers can still retrain by not setting SKIP_TRAINING (default behavior)
+# - Models will automatically retrain locally if data file has changed (detected via hash comparison)
+# - DBDData.csv is included in the image, but can be overridden via volume mount or environment variable
 
 # Expose port
 EXPOSE 5000
 
-# Health check (longer start period to allow for model training on startup)
+# Health check (start period allows buffer for startup, though typically much faster with pre-trained models)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=300s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/health').read()" || exit 1
 
-# Run startup script (always trains models on startup, then starts Flask)
+# Run startup script (trains models if SKIP_TRAINING is not set, then starts Flask)
 CMD ["/bin/bash", "./start.sh"]
 

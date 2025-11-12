@@ -251,56 +251,79 @@ docker-compose build
 docker-compose up -d
 ```
 
-**Note**: Models are trained on every container startup (takes 2-5 minutes) to ensure they use the latest data. This allows you to update `DBDData.csv` and have the models automatically retrain with the new data. The web interface includes a toggle switch to select between the "With Bloodpoints" and "Without Bloodpoints" models.
+**Note**: Models are pre-trained during Docker build and included in the image. When running locally, the container will automatically check if the data file has changed and retrain if needed (takes 2-5 minutes if retraining is required). This allows you to update `DBDData.csv` and have the models automatically retrain with the new data. The web interface includes a toggle switch to select between the "With Bloodpoints" and "Without Bloodpoints" models.
+
+**For Render deployments**: Models are pre-trained in the Docker image, so Render uses them directly without retraining (1-2 minutes). To update models on Render, rebuild and redeploy the Docker image with updated data.
 
 **For Local Python Development**: Models must be trained manually using `python src/train_model.py` before running the app. See the "Local Python Development" section above for details.
 
 ### Updating Docker Hub Image
 
-To update the Docker Hub image with the latest changes:
+To update the Docker Hub image with the latest changes (including new training data):
 
 ```bash
-# Build the image
+# 1. Update DBDData.csv with your new data (if needed)
+
+# 2. Build the image (models train during build with latest data)
 docker build -t h2x0/dbd-predictor:latest .
 
-# Push to Docker Hub
+# 3. Push to Docker Hub
 docker push h2x0/dbd-predictor:latest
 ```
 
-**Note**: The image is available at `h2x0/dbd-predictor:latest` on Docker Hub.
+**Note**: 
+- The image is available at `h2x0/dbd-predictor:latest` on Docker Hub
+- Models are automatically trained during the build process with the latest `DBDData.csv`
+- After pushing, if Render is pulling from Docker Hub, you'll need to trigger a redeploy to pull the new image
 
 ### Cloud Deployment (Render)
 
-The project includes a `render.yaml` configuration file for easy deployment to Render:
+The project includes a `render.yaml` configuration file for easy deployment to Render when pulled from Docker hub.
+
+#### Pull from Docker Hub (recommended for production)
 
 **1. Deploy to Render:**
+- In Render dashboard, create a new Web Service
+- Select "Docker" as the runtime
+- Set the Docker image to: `h2x0/dbd-predictor:latest`
+- Set environment variables (see `render.yaml` for reference, especially `SKIP_TRAINING=true` so startups after inactivity don't take as long)
+- Models are pre-trained in the Docker Hub image, so startup is faster for the site itself (~30-60 seconds) rather than retraining every time
 
-- Connect your GitHub repository to Render
-- Render will automatically detect `render.yaml` and deploy the service
-- The service will train models on startup (takes 2-5 minutes)
+**2. Updating Data on Render (Docker Hub):**
+To update models with new data when Render pulls from Docker Hub:
 
-**2. Updating Data on Render:**
+1. **Update the data file locally:**
+   ```bash
+   # Edit DBDData.csv with your new data
+   ```
 
-To update the training data (`DBDData.csv`) on Render:
+2. **Rebuild and push the Docker image:**
+   ```bash
+   # Build the image (models train during build)
+   docker build -t h2x0/dbd-predictor:latest .
+   
+   # Push to Docker Hub
+   docker push h2x0/dbd-predictor:latest
+   ```
 
-- **Option A**: Update `DBDData.csv` in your repository and push to GitHub. Render will automatically redeploy, and models will retrain with the new data.
-- **Option B**: Use Render's environment variables or file system to update the CSV file, then trigger a manual redeploy.
+3. **Trigger Render to pull the new image:**
+     - Use Render API to trigger redeploy (press "Deploy latest reference" under "Manual Deploy")
 
 **Important Notes for Render Deployment:**
 
-- Models only retrain when the data file (`DBDData.csv`) has changed (detected via file hash comparison)
-- If data is unchanged, startup is fast (~30 seconds) as training is skipped
-- If data has changed, training takes 5-7 minutes on first startup or after data updates
-- Health check start period is set to 300 seconds (5 minutes) to allow for training when needed
-- Ensure your Render plan has sufficient resources for model training
-- The `DBDData.csv` file is included in the Docker image, but you can override it via environment variables or file mounts
-- **Cold Start Warning**: After being inactive for a while, if data has changed, the service may take upwards of 10 minutes to start up: 2-3 minutes for the service to start up, then another 5-7 minutes for model training. If data is unchanged, startup is much faster (~30 seconds).
+- **Models are pre-trained during Docker build** and included in the image at `/app/`
+- Render deployments use pre-trained models directly (no retraining on startup) for fast startup (~30-60 seconds)
+- The `SKIP_TRAINING=true` environment variable should be set to skip training on Render
+- **To update models with new data**: Rebuild the Docker image with updated `DBDData.csv` and push to Docker Hub, then trigger Render to pull the new image
+- Health check start period is set to 300 seconds (5 minutes) as a safety buffer, but startup is typically much faster
+- The `DBDData.csv` file is included in the Docker image
+- **Local Docker behavior**: When running locally (without `SKIP_TRAINING`), the container will automatically retrain if the data file has changed, allowing for easy development and testing
 
 ## 4) Design Decisions
 
 ### Why This Concept?
 
-**Docker**: Essential for ensuring consistent deployment across different environments. My container includes all dependencies (PyTorch, Flask, scikit-learn, etc.) and gets rid of the "works on my machine" issues. The container automatically checks for the data file having changed or remained the same, and only retrains the neural network models when necessary (data updated), ensuring faster startup times while keeping models up-to-date.
+**Docker**: Essential for ensuring consistent deployment across different environments. My container includes all dependencies (PyTorch, Flask, scikit-learn, etc.) and gets rid of the "works on my machine" issues. **Models are pre-trained during Docker build** for fast startup times, and the container automatically checks if the data file has changed at runtime, only retraining when necessary. This provides the best of both worlds: fast startup (30-60 seconds) and automatic model updates when data changes.
 
 **Flask**: The application only needs basic routing and JSON handling, making Flask appropriate for handling this front-end task. The REST API design allows for both web interface and programmatic access. It allows me to create a nice UI and UX for the project that has a coherent theme/scheme while being pretty easily usable.
 
@@ -322,9 +345,10 @@ To update the training data (`DBDData.csv`) on Render:
 - **Mitigation**: Model metadata (`model_info.pkl`) stores architecture parameters to ensure compatibility
 
 **Development vs. Production**:
-- **Decision**: Automatic model training on startup vs. pre-trained models
-- **Tradeoff**: Training on startup ensures fresh models but increases startup time
-- **Rationale**: Automatic training ensures models are always up-to-date with the latest data
+- **Decision**: Pre-trained models in Docker image for production (Render), automatic retraining for local development
+- **Tradeoff**: Pre-trained models enable fast startup in production (~30-60 seconds), while local containers can still retrain when data changes
+- **Rationale**: Best of both worlds - fast production deployments and flexible local development
+- **Implementation**: Models are trained during Docker build, and `SKIP_TRAINING` environment variable controls runtime behavior
 - **Early Stopping**: Implemented to prevent overfitting and improve generalization as dataset grows (max 100 epochs, patience 5)
 
 ### Security/Privacy
@@ -346,7 +370,7 @@ To update the training data (`DBDData.csv`) on Render:
 - No user session tracking or logging of predictions
 
 **Data Privacy**:
-- Optionally exlude training data (`DBDData.csv`) from repository via `.gitignore` (not entirely necessary at this moment, so I just kept it)
+- Optionally exclude training data (`DBDData.csv`) from repository via `.gitignore` (not entirely necessary at this moment, so I just kept it)
 - Model/weight files (.pkl) excluded to prevent accidental data leakage
 
 ### Operations & Risk Management
@@ -381,7 +405,7 @@ To update the training data (`DBDData.csv`) on Render:
 - **Future**: Could add Redis for session management, gunicorn for multi-worker support
 
 **Resource Footprint**:
-- **Container Image**: ~500 MB - 1 GB (Python 3.11 slim base with dependencies)
+- **Container Image**: ~500 MB - 1 GB (Python 3.11 slim base with dependencies), only 512MB RAM on web service (since that's all we get)
 - **Memory Usage**:
   - Runtime (inference only): ~500 MB - 1 GB
   - During training (startup): ~1-2 GB peak (both models training simultaneously)
@@ -394,12 +418,12 @@ To update the training data (`DBDData.csv`) on Render:
 - **Network**: Minimal bandwidth (small JSON requests/responses)
 
 **Known Limitations**:
-1. Both models train on every container startup (adds ~2-5 minutes to startup time) - this is intentional to ensure models use the latest data
+1. Models are pre-trained during Docker build - to update models with new data, rebuild the image and redeploy
 2. No database persistence (stateless predictions only)
 3. Single-threaded Flask server (not production-grade for high traffic)
 4. No authentication/authorization (suitable for local use only)
 5. Training data can be provided via volume mount (`DBDData.csv`) or is included in Docker Hub image
-6. **Note**: To update models with new data, simply update `DBDData.csv` and redeploy - models will automatically retrain on startup
+6. **Note**: Local Docker containers will automatically retrain if data changes (when `SKIP_TRAINING` is not set), but Render deployments use pre-trained models for fast startup
 
 ## 5) Results & Evaluation
 
@@ -425,10 +449,12 @@ To update the training data (`DBDData.csv`) on Render:
 - Network latency: Minimal (local deployment), and also somewhat minimal for 
 
 **Resource Usage**:
-- Container startup: ~30 seconds if data unchanged, ~2-5 minutes if retraining needed (includes training both models)
+- Container startup: 
+  - **Render/Production**: ~30-60 seconds (uses pre-trained models from image)
+  - **Local Docker**: ~30 seconds if data unchanged, ~2-5 minutes if retraining needed (includes training both models)
 - Training time: ~30-90 seconds per model (varies with early stopping, max 100 epochs)
 - Memory footprint: ~500 MB base + model size (both models loaded in memory)
-- **Note**: Models only retrain when the data file (`DBDData.csv`) has changed, detected via file hash comparison. This ensures fast startup times while keeping models up-to-date.
+- **Note**: Models are pre-trained during Docker build for production deployments. Local Docker containers will automatically retrain if the data file (`DBDData.csv`) has changed, detected via file hash comparison.
 
 ### Validation/Tests
 
@@ -468,7 +494,7 @@ To update the training data (`DBDData.csv`) on Render:
    - **Early Stopping**: Implemented early stopping (max 100 epochs, patience 5) for better generalization and hopefully better training
    - **Docker Hub Deployment**: Image available at `h2x0/dbd-predictor:latest` (models train on startup)
    - **Cloud Deployment**: `render.yaml` configuration included for easy Render deployment, available at link near bottom of page
-   - **Automatic Model Retraining**: Models automatically retrain on every deployment to use latest data
+   - **Pre-trained Models for Production**: Models are trained during Docker build for fast Render startup (~30-60 seconds), while local Docker containers still retrain when data changes since more RAM is available
    - **Map Assistance**: Makes it easier to find map by adding realm and map options/dropdowns which will then autofill the remaining fields (type and area) and moving tooltip to section header instead of next to map area
    - **Build Comparison**: Allow to compare probabilities between two different configurations
    - **Statistics**: Display graphs using statistics from data
