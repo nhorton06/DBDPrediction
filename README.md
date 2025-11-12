@@ -122,6 +122,8 @@ DBDPrediction/
 - **API Endpoints**:
   - **POST `/predict`**: Main prediction endpoint (includes optional `include_importance` flag for feature influence)
   - **POST `/optimize`**: Optimization endpoint to find best variable configuration (respects 4-perk limit)
+  - **POST `/top_builds`**: Returns top N builds with highest escape chances (accepts `model_type` and `count` parameters)
+  - **GET `/statistics`**: Returns statistics about the training data including feature distributions and escape rates for displaying graphs
   - **GET `/health`**: Health check for container monitoring (reports status of both models)
 - **Features**:
   - Real-time escape probability prediction
