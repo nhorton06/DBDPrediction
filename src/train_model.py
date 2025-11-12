@@ -69,6 +69,16 @@ def train_model(csv_path='DBDData.csv', output_dir='/app', include_bp=True):
         output_dir: Directory to save model files
         include_bp: If True, include bloodpoint columns; if False, exclude them
     """
+    # Set random seeds for reproducibility
+    seed = 42
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    
     model_type = "with BP" if include_bp else "without BP"
     print("=" * 60)
     print(f"DBD Escape Prediction Model Training ({model_type})")
@@ -286,6 +296,7 @@ def train_model(csv_path='DBDData.csv', output_dir='/app', include_bp=True):
     X_val_tensor = torch.FloatTensor(X_val)
     y_val_tensor = torch.FloatTensor(y_val)
     X_test_tensor = torch.FloatTensor(X_test)
+    y_test_tensor = torch.FloatTensor(y_test)
     
     # Create data loaders
     print("\n[5/7] Creating data loaders...")
@@ -408,6 +419,55 @@ def train_model(csv_path='DBDData.csv', output_dir='/app', include_bp=True):
     
     print("-" * 60)
     print(f"Training complete after {e} epochs!")
+    
+    # Evaluate on test set to verify model performance
+    print("\nEvaluating model on test set...")
+    model.eval()
+    test_loss = 0
+    test_accuracy = 0
+    test_batches = 0
+    test_correct = 0
+    test_total = 0
+    
+    test_data = TrainingData(X_test_tensor, y_test_tensor)
+    test_loader = DataLoader(dataset=test_data, batch_size=Batch_size)
+    
+    with torch.no_grad():
+        for X_batch, y_batch in test_loader:
+            X_batch, y_batch = X_batch.to(device), y_batch.to(device)
+            y_pred = model(X_batch)
+            loss = criterion(y_pred, y_batch.unsqueeze(1))
+            accuracy = binary_accuracy(y_pred, y_batch.unsqueeze(1))
+            
+            # Calculate predictions for confusion matrix
+            y_pred_tag = torch.round(torch.sigmoid(y_pred))
+            test_correct += (y_pred_tag == y_batch.unsqueeze(1)).sum().item()
+            test_total += y_batch.shape[0]
+            
+            test_loss += loss.item()
+            test_accuracy += accuracy.item()
+            test_batches += 1
+    
+    avg_test_loss = test_loss / test_batches
+    avg_test_accuracy = test_accuracy / test_batches
+    test_accuracy_pct = (test_correct / test_total) * 100
+    
+    print(f"   Test Loss: {avg_test_loss:.5f}")
+    print(f"   Test Accuracy: {avg_test_accuracy:.2f}% ({test_correct}/{test_total} correct)")
+    print(f"   Test Accuracy (calculated): {test_accuracy_pct:.2f}%")
+    
+    # Check if model is learning (accuracy should be better than random guessing)
+    if avg_test_accuracy < 50:
+        print(f"   ⚠️  WARNING: Test accuracy ({avg_test_accuracy:.2f}%) is below random guessing (50%)!")
+        print(f"   This suggests the model may not be learning properly.")
+    elif avg_test_accuracy < 55:
+        print(f"   ⚠️  WARNING: Test accuracy ({avg_test_accuracy:.2f}%) is only slightly above random guessing.")
+        print(f"   Model may be weak or data may be difficult to predict.")
+    elif avg_test_accuracy > 95:
+        print(f"   ⚠️  WARNING: Test accuracy ({avg_test_accuracy:.2f}%) is very high - possible overfitting!")
+        print(f"   Consider checking train/val/test split and model complexity.")
+    else:
+        print(f"   ✓ Test accuracy looks reasonable for this task.")
     
     # Save model files
     print(f"\nSaving model files to {output_dir}...")

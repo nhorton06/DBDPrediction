@@ -75,12 +75,18 @@ def load_model(include_bp=True):
     # Try multiple possible locations for model files
     # Get project root (parent of src/)
     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    possible_dirs = [
+    # Check MODEL_OUTPUT_DIR environment variable first
+    model_output_dir = os.getenv('MODEL_OUTPUT_DIR', None)
+    possible_dirs = []
+    if model_output_dir:
+        possible_dirs.append(model_output_dir)
+    possible_dirs.extend([
         '.',  # Current directory (for local development)
         project_root,  # Project root
-        '/app',  # Docker container directory
+        '/app/models',  # Docker container models directory (persisted)
+        '/app',  # Docker container directory (fallback)
         os.path.join(project_root, 'app'),  # app subdirectory if it exists
-    ]
+    ])
     
     for model_dir in possible_dirs:
         try:
@@ -662,6 +668,248 @@ def evaluate_config(model, scaler, model_info, config):
         return probability
     except:
         return -1.0
+
+@app.route('/top_builds', methods=['POST'])
+def top_builds():
+    """Get top N builds with highest escape chances"""
+    try:
+        data = request.get_json()
+        use_bp = data.get('model_type', 'with_bp') == 'with_bp'
+        count = data.get('count', 5)
+        
+        # Select appropriate model
+        if use_bp:
+            model = model_with_bp
+            scaler = scaler_with_bp
+            model_info = model_info_with_bp
+        else:
+            model = model_no_bp
+            scaler = scaler_no_bp
+            model_info = model_info_no_bp
+        
+        if model is None or scaler is None or model_info is None:
+            return jsonify({'error': 'Model not loaded'}), 500
+        
+        # Generate top builds using similar logic to optimization
+        items = ['Medkit', 'Toolbox', 'Flashlight', 'Key', 'Map', 'Firecracker', 'Fog Vial', 'None']
+        exhaustion_perks = ['Sprint Burst', 'Dead Hard', 'Lithe', 'DHBL', 'None']
+        map_types = model_info.get('map_types', ['Outdoor', 'Indoor'])
+        indoor_map_areas = [10000, 9088, 8832, 7264, 6272]
+        outdoor_map_areas = [11264, 11008, 10752, 10496, 10304, 10240, 9984, 9728, 9472, 9216, 8960, 8704, 8448]
+        
+        import itertools
+        builds = []
+        
+        # Generate valid perk combinations
+        valid_perk_configs = []
+        for exhaustion_perk in exhaustion_perks:
+            exhaustion_count = 1 if exhaustion_perk != 'None' else 0
+            for chase_count in range(4):
+                remaining_slots = 4 - exhaustion_count - chase_count
+                if remaining_slots < 0:
+                    continue
+                other_perks = ['decisive_strike', 'unbreakable', 'off_the_record', 'adrenaline']
+                for num_other in range(min(remaining_slots + 1, len(other_perks) + 1)):
+                    for combo in itertools.combinations(other_perks, num_other):
+                        if len(combo) == remaining_slots:
+                            valid_perk_configs.append({
+                                'exhaustion_perk': exhaustion_perk,
+                                'chase_perks': chase_count,
+                                'other_perks': combo
+                            })
+        
+        # Optimized approach: Test configurations strategically with early stopping
+        # Use high prestige (100) for best results
+        prestige = 100
+        # Limit map areas to representative samples for performance
+        # Use largest areas (typically better for survivors)
+        indoor_sample = indoor_map_areas[:3]  # Top 3 largest
+        outdoor_sample = outdoor_map_areas[:5]  # Top 5 largest
+        
+        # Track builds as we go for early stopping
+        builds = []
+        max_builds_to_test = count * 50  # Test enough to find variety, but not too many
+        tested = 0
+        
+        # Prioritize testing: items first, then exhaustion perks, then other factors
+        for item in items:
+            if tested >= max_builds_to_test:
+                break
+            for exhaustion_perk in exhaustion_perks:
+                if tested >= max_builds_to_test:
+                    break
+                # Find perk configs with this exhaustion perk
+                relevant_perk_configs = [p for p in valid_perk_configs if p['exhaustion_perk'] == exhaustion_perk]
+                # Limit to a few good perk configs per exhaustion perk
+                for perk_config in relevant_perk_configs[:10]:  # Limit perk configs
+                    if tested >= max_builds_to_test:
+                        break
+                    for map_type in map_types:
+                        if tested >= max_builds_to_test:
+                            break
+                        valid_map_areas = indoor_sample if map_type == 'Indoor' else outdoor_sample
+                        for map_area in valid_map_areas:
+                            if tested >= max_builds_to_test:
+                                break
+                            # Test a few combinations of other factors
+                            for powerful_add_ons in ['Yes', 'No']:
+                                if tested >= max_builds_to_test:
+                                    break
+                                # Use optimal settings for other factors (can adjust)
+                                survivor_gender = 'F'  # Test one gender (doesn't significantly affect escape)
+                                steam_player = 'Yes'  # Steam players typically have better stats
+                                anonymous_mode = 'No'  # Non-anonymous typically better
+                                
+                                test_config = {
+                                    'item': item,
+                                    'map_type': map_type,
+                                    'prestige': prestige,
+                                    'map_area': map_area,
+                                    'powerful_add_ons': powerful_add_ons,
+                                    'survivor_gender': survivor_gender,
+                                    'steam_player': steam_player,
+                                    'anonymous_mode': anonymous_mode,
+                                    'exhaustion_perk': perk_config['exhaustion_perk'],
+                                    'chase_perks': perk_config['chase_perks'],
+                                    'decisive_strike': 'Yes' if 'decisive_strike' in perk_config['other_perks'] else 'No',
+                                    'unbreakable': 'Yes' if 'unbreakable' in perk_config['other_perks'] else 'No',
+                                    'off_the_record': 'Yes' if 'off_the_record' in perk_config['other_perks'] else 'No',
+                                    'adrenaline': 'Yes' if 'adrenaline' in perk_config['other_perks'] else 'No'
+                                }
+                                
+                                if use_bp:
+                                    test_config['survivor_bp'] = 25000
+                                    test_config['killer_bp'] = 15000
+                                
+                                score = evaluate_config(model, scaler, model_info, test_config)
+                                builds.append({
+                                    'config': test_config,
+                                    'escape_chance': round(score * 100, 2),
+                                    'will_escape': score >= 0.5
+                                })
+                                tested += 1
+                                
+                                # Early stopping: if we have enough diverse builds with good scores, we can stop
+                                if len(builds) >= count * 20:  # Have enough candidates
+                                    # Sort and check if we have variety
+                                    builds.sort(key=lambda x: x['escape_chance'], reverse=True)
+                                    temp_used = set()
+                                    temp_count = 0
+                                    for b in builds:
+                                        if b['config']['exhaustion_perk'] not in temp_used and b['escape_chance'] >= 40:
+                                            temp_used.add(b['config']['exhaustion_perk'])
+                                            temp_count += 1
+                                            if temp_count >= count:
+                                                break
+                                    if temp_count >= count:
+                                        break
+        
+        # Sort by escape chance
+        builds.sort(key=lambda x: x['escape_chance'], reverse=True)
+        
+        # Ensure variety: prioritize different exhaustion perks (items can repeat)
+        top_builds = []
+        used_exhaustion_perks = set()
+        
+        # First, get the absolute best build
+        if builds:
+            top_builds.append(builds[0])
+            used_exhaustion_perks.add(builds[0]['config']['exhaustion_perk'])
+        
+        # Then find diverse high-scoring builds with different exhaustion perks
+        for build in builds[1:]:
+            if len(top_builds) >= count:
+                break
+            
+            exhaustion = build['config']['exhaustion_perk']
+            
+            # Only add if it's a new exhaustion perk and still has high escape chance
+            # Require at least 40% escape chance for variety
+            if exhaustion not in used_exhaustion_perks and build['escape_chance'] >= 40:
+                top_builds.append(build)
+                used_exhaustion_perks.add(exhaustion)
+        
+        # If we don't have enough diverse builds, fill with remaining top builds
+        if len(top_builds) < count:
+            for build in builds:
+                if len(top_builds) >= count:
+                    break
+                if build not in top_builds:
+                    top_builds.append(build)
+        
+        # Sort final list by escape chance
+        top_builds.sort(key=lambda x: x['escape_chance'], reverse=True)
+        
+        return jsonify({'builds': top_builds[:count]})
+    
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 400
+
+@app.route('/statistics', methods=['GET'])
+def statistics():
+    """Get statistics about the training data"""
+    try:
+        import pandas as pd
+        csv_path = 'DBDData.csv'
+        
+        # Try multiple locations
+        possible_paths = [
+            csv_path,
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), csv_path),
+            f'/app/{csv_path}'
+        ]
+        
+        dataset = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                dataset = pd.read_csv(path, keep_default_na=False, na_values=[])
+                break
+        
+        if dataset is None:
+            return jsonify({'error': 'Training data not found'}), 404
+        
+        # Calculate statistics
+        feature_stats = {}
+        escape_rates = {}
+        
+        # Feature distributions
+        categorical_features = ['Item', 'Exhaustion Perk', 'Map Type', 'Survivor Gender', 
+                               'Steam Player', 'Anonymous Mode', 'Powerful Add-ons',
+                               'Decisive Strike', 'Unbreakable', 'Off the Record', 'Adrenaline']
+        
+        for feature in categorical_features:
+            if feature in dataset.columns:
+                value_counts = dataset[feature].value_counts().to_dict()
+                feature_stats[feature] = {
+                    'distribution': {str(k): int(v) for k, v in value_counts.items()},
+                    'total': len(dataset)
+                }
+                
+                # Calculate escape rates by feature value
+                escape_by_value = {}
+                for value in value_counts.keys():
+                    subset = dataset[dataset[feature] == value]
+                    if len(subset) > 0:
+                        escape_count = len(subset[subset['Result'] == 'Escape'])
+                        escape_rate = (escape_count / len(subset)) * 100
+                        escape_by_value[str(value)] = escape_rate
+                escape_rates[feature] = escape_by_value
+        
+        total_games_count = len(dataset)
+        total_escapes_count = len(dataset[dataset['Result'] == 'Escape'])
+        
+        return jsonify({
+            'feature_stats': feature_stats,
+            'escape_rates': escape_rates,
+            'total_games': total_games_count,  # This is actually total survivors (rows)
+            'total_escapes': total_escapes_count,
+            'overall_escape_rate': (total_escapes_count / total_games_count) * 100 if total_games_count > 0 else 0
+        })
+    
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 400
 
 if __name__ == '__main__':
     import os

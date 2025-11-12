@@ -225,7 +225,7 @@ docker run --rm -p 5000:5000 \
 
 **Note**: The Docker Hub image includes `DBDData.csv` in the image, so the volume mount is optional (useful for overriding with local data).
 
-### Docker Compose (Recommended)
+### Docker Compose (Recommended for Local)
 
 ```bash
 # Build and start the container (one command startup)

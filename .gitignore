@@ -35,6 +35,16 @@ env/
 dbd_model.pth
 scaler.pkl
 model_info.pkl
+dbd_model_with_bp.pth
+dbd_model_no_bp.pth
+scaler_with_bp.pkl
+scaler_no_bp.pkl
+model_info_with_bp.pkl
+model_info_no_bp.pkl
+data_hash.txt
+
+# Persisted model directory (local Docker)
+models/
 
 # Data files (add if you don't want to share data)
 # DBDData.csv

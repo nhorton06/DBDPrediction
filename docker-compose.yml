@@ -10,12 +10,13 @@ services:
       # Optional: Mount CSV file to override the one in the image (for local development)
       # If not mounted, the CSV from the Docker image will be used
       - ./DBDData.csv:/app/DBDData.csv:ro
-      # Model files will be generated in /app (no need to mount)
+      # Persist model files and hash to avoid retraining on every restart
+      - ./models:/app/models
     environment:
       - FLASK_ENV=production
       - FLASK_APP=app.py
       - TRAINING_CSV=/app/DBDData.csv
-      - MODEL_OUTPUT_DIR=/app
+      - MODEL_OUTPUT_DIR=/app/models
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health').read()"]
