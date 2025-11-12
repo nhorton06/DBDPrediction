@@ -656,6 +656,9 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
 def evaluate_config(model, scaler, model_info, config):
     """Evaluate a configuration and return escape probability"""
     try:
+        # Ensure model is in eval mode for deterministic predictions
+        model.eval()
+        
         features = build_feature_vector(config, model_info)
         features_array = features.reshape(1, -1)
         features_scaled = scaler.transform(features_array)
@@ -807,29 +810,46 @@ def top_builds():
         # Sort by escape chance
         builds.sort(key=lambda x: x['escape_chance'], reverse=True)
         
-        # Ensure variety: prioritize different exhaustion perks (items can repeat)
+        # Ensure variety: group by exhaustion perk and select strategically
+        # Strategy: Get best build from each exhaustion perk, then fill remaining slots
+        # with a limit on how many of the same exhaustion perk (max 2-3 per perk)
         top_builds = []
-        used_exhaustion_perks = set()
+        exhaustion_perk_counts = {}  # Track how many builds we have per exhaustion perk
+        max_per_exhaustion = max(2, count // 3)  # Allow 2-3 builds per exhaustion perk max
         
-        # First, get the absolute best build
-        if builds:
-            top_builds.append(builds[0])
-            used_exhaustion_perks.add(builds[0]['config']['exhaustion_perk'])
+        # First pass: Get the best build from each exhaustion perk
+        exhaustion_perk_best = {}  # Track best build per exhaustion perk
+        for build in builds:
+            exhaustion = build['config']['exhaustion_perk']
+            if exhaustion not in exhaustion_perk_best:
+                exhaustion_perk_best[exhaustion] = build
         
-        # Then find diverse high-scoring builds with different exhaustion perks
-        for build in builds[1:]:
+        # Add the best from each exhaustion perk (sorted by score)
+        best_per_perk = sorted(exhaustion_perk_best.values(), key=lambda x: x['escape_chance'], reverse=True)
+        for build in best_per_perk:
             if len(top_builds) >= count:
                 break
+            exhaustion = build['config']['exhaustion_perk']
+            top_builds.append(build)
+            exhaustion_perk_counts[exhaustion] = exhaustion_perk_counts.get(exhaustion, 0) + 1
+        
+        # Second pass: Fill remaining slots with high-scoring builds, but limit per exhaustion perk
+        for build in builds:
+            if len(top_builds) >= count:
+                break
+            if build in top_builds:
+                continue
             
             exhaustion = build['config']['exhaustion_perk']
+            current_count = exhaustion_perk_counts.get(exhaustion, 0)
             
-            # Only add if it's a new exhaustion perk and still has high escape chance
-            # Require at least 40% escape chance for variety
-            if exhaustion not in used_exhaustion_perks and build['escape_chance'] >= 40:
+            # Only add if we haven't exceeded the limit for this exhaustion perk
+            # and the build has a reasonable escape chance (at least 35%)
+            if current_count < max_per_exhaustion and build['escape_chance'] >= 35:
                 top_builds.append(build)
-                used_exhaustion_perks.add(exhaustion)
+                exhaustion_perk_counts[exhaustion] = current_count + 1
         
-        # If we don't have enough diverse builds, fill with remaining top builds
+        # Final pass: If still not enough, fill with remaining top builds (no limit)
         if len(top_builds) < count:
             for build in builds:
                 if len(top_builds) >= count:

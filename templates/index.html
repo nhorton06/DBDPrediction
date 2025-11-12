@@ -3065,6 +3065,28 @@
         // Side-by-side comparison
         document.getElementById('copyCurrentBtn').addEventListener('click', () => {
             const currentData = getFormData();
+            
+            // Validate required fields are filled
+            const requiredFields = ['survivor_gender', 'steam_player', 'anonymous_mode', 'prestige', 'item', 
+                                   'powerful_add_ons', 'map_type', 'map_area', 'exhaustion_perk', 
+                                   'chase_perks', 'decisive_strike', 'unbreakable', 'off_the_record', 'adrenaline'];
+            const missingFields = [];
+            requiredFields.forEach(field => {
+                if (!currentData[field] || currentData[field] === '' || currentData[field] === null || currentData[field] === undefined) {
+                    // Check if it's a numeric field that might be 0
+                    if (!['prestige', 'chase_perks', 'map_area'].includes(field)) {
+                        missingFields.push(field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+                    } else if (currentData[field] === '' || currentData[field] === null || currentData[field] === undefined) {
+                        missingFields.push(field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+                    }
+                }
+            });
+            
+            if (missingFields.length > 0) {
+                alert(`Please fill in all required fields first:\n\n${missingFields.join(', ')}\n\nComplete the form above before copying to compare.`);
+                return;
+            }
+            
             window.compareConfig = JSON.parse(JSON.stringify(currentData)); // Deep copy
             currentPrediction = window.lastPrediction || currentPrediction || null;
             
