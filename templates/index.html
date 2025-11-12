@@ -3024,6 +3024,24 @@
                             chanceDisplay = `${newChance}% <span style="color: ${changeColor};">(${changeSign}${change}%)</span>`;
                         }
                         
+                        // Calculate percent change if original chance is available
+                        let changeDisplay = '';
+                        if (originalChance !== null) {
+                            const change = data.escape_chance - originalChance;
+                            const percentChange = originalChance !== 0 ? ((change / originalChance) * 100) : 0;
+                            const changeColor = change > 0 ? '#4dff4d' : change < 0 ? '#ff6666' : '#aaa';
+                            const changeSign = change > 0 ? '+' : '';
+                            changeDisplay = `
+                                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color);">
+                                    <div style="font-size: 1.2em; color: ${changeColor}; font-weight: bold;">
+                                        ${changeSign}${change.toFixed(2)}% ${change > 0 ? 'increase' : change < 0 ? 'decrease' : 'change'}
+                                    </div>
+                                    <div style="font-size: 0.85em; color: var(--text-secondary); margin-top: 3px;">
+                                        (${changeSign}${percentChange.toFixed(1)}% relative change)
+                                    </div>
+                                </div>`;
+                        }
+                        
                         document.getElementById('whatifResults').innerHTML = 
                             `<div style="padding: 15px; background: var(--bg-tertiary); border-radius: 5px; border: 2px solid var(--accent-red);">
                                 <strong style="color: var(--accent-red);">Scenario: ${btn.textContent}</strong><br>
@@ -3037,6 +3055,7 @@
                                 <div style="margin-top: 5px; color: var(--text-secondary); font-size: 0.9em;">
                                     ${data.will_escape ? '✓ Would Escape' : '✗ Would Not Escape'}
                                 </div>
+                                ${changeDisplay}
                             </div>`;
                         document.getElementById('whatifResults').style.display = 'block';
                     } else {

@@ -705,6 +705,57 @@ def evaluate_config(model, scaler, model_info, config):
     except:
         return -1.0
 
+def configs_are_equal(config1, config2):
+    """Check if two build configurations are identical"""
+    # Compare all relevant configuration fields
+    fields_to_compare = [
+        'item', 'map_type', 'prestige', 'map_area', 'powerful_add_ons',
+        'survivor_gender', 'steam_player', 'anonymous_mode',
+        'exhaustion_perk', 'chase_perks',
+        'decisive_strike', 'unbreakable', 'off_the_record', 'adrenaline'
+    ]
+    
+    # If using BP model, also compare BP fields
+    if 'survivor_bp' in config1 or 'survivor_bp' in config2:
+        fields_to_compare.extend(['survivor_bp', 'killer_bp'])
+    
+    for field in fields_to_compare:
+        if config1.get(field) != config2.get(field):
+            return False
+    return True
+
+def build_already_in_list(build, build_list):
+    """Check if a build with the same configuration already exists in the list"""
+    for existing_build in build_list:
+        if configs_are_equal(build['config'], existing_build['config']):
+            return True
+    return False
+
+def item_perks_equal(config1, config2):
+    """Check if two builds have the same item and perks combination (ignoring other features)"""
+    # Compare only item and perk-related fields
+    perk_fields = [
+        'item',
+        'exhaustion_perk',
+        'chase_perks',
+        'decisive_strike',
+        'unbreakable',
+        'off_the_record',
+        'adrenaline'
+    ]
+    
+    for field in perk_fields:
+        if config1.get(field) != config2.get(field):
+            return False
+    return True
+
+def item_perks_already_in_list(build, build_list):
+    """Check if a build with the same item+perks combination already exists in the list"""
+    for existing_build in build_list:
+        if item_perks_equal(build['config'], existing_build['config']):
+            return True
+    return False
+
 @app.route('/top_builds', methods=['POST'])
 def top_builds():
     """Get top N builds with highest escape chances"""
@@ -850,11 +901,14 @@ def top_builds():
         exhaustion_perk_counts = {}  # Track how many builds we have per exhaustion perk
         max_per_exhaustion = max(2, count // 3)  # Allow 2-3 builds per exhaustion perk max
         
-        # First pass: Get the best build from each exhaustion perk
+        # First pass: Get the best build from each exhaustion perk (ensuring unique configurations)
         exhaustion_perk_best = {}  # Track best build per exhaustion perk
         for build in builds:
             exhaustion = build['config']['exhaustion_perk']
+            # Only update if we haven't seen this exhaustion perk, or if this build has a better score
             if exhaustion not in exhaustion_perk_best:
+                exhaustion_perk_best[exhaustion] = build
+            elif build['escape_chance'] > exhaustion_perk_best[exhaustion]['escape_chance']:
                 exhaustion_perk_best[exhaustion] = build
         
         # Add the best from each exhaustion perk (sorted by score)
@@ -862,15 +916,18 @@ def top_builds():
         for build in best_per_perk:
             if len(top_builds) >= count:
                 break
-            exhaustion = build['config']['exhaustion_perk']
-            top_builds.append(build)
-            exhaustion_perk_counts[exhaustion] = exhaustion_perk_counts.get(exhaustion, 0) + 1
+            # Check if this item+perks combination is already in top_builds (since that's what's displayed)
+            if not item_perks_already_in_list(build, top_builds):
+                exhaustion = build['config']['exhaustion_perk']
+                top_builds.append(build)
+                exhaustion_perk_counts[exhaustion] = exhaustion_perk_counts.get(exhaustion, 0) + 1
         
         # Second pass: Fill remaining slots with high-scoring builds, but limit per exhaustion perk
         for build in builds:
             if len(top_builds) >= count:
                 break
-            if build in top_builds:
+            # Check if this item+perks combination is already in top_builds (since that's what's displayed)
+            if item_perks_already_in_list(build, top_builds):
                 continue
             
             exhaustion = build['config']['exhaustion_perk']
@@ -887,7 +944,8 @@ def top_builds():
             for build in builds:
                 if len(top_builds) >= count:
                     break
-                if build not in top_builds:
+                # Check if this item+perks combination is already in top_builds (since that's what's displayed)
+                if not item_perks_already_in_list(build, top_builds):
                     top_builds.append(build)
         
         # Sort final list by escape chance
