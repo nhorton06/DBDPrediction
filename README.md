@@ -58,8 +58,8 @@ The system follows a request-response flow with multiple endpoints:
 ```
 DBDPrediction/
 ├── src/                    # Application source code
-│   ├── app.py             # Flask web application (loads both models, handles predictions)
-│   ├── train_model.py     # Model training script (trains both with_bp and no_bp models)
+│   ├── app.py             # Flask web application
+│   ├── train_model.py     # Model training script (trains both models)
 │   └── save_model.py      # Model saving utility
 ├── tests/                  # Unit and smoke tests
 │   ├── test_api.py        # API endpoint tests
@@ -71,16 +71,24 @@ DBDPrediction/
 │   ├── icon.png           # Favicon
 │   ├── escaped.png        # Escape outcome image
 │   ├── sacrificed.png     # Sacrifice outcome image
-│   ├── *.png              # Various UI icons (steam, anonymous, prestige, items, perks, etc.)
-├── DBDData.csv            # Training data (included in Docker image, not in repo)
+│   ├── *.png              # Various UI icons (steam, prestige, perks, etc.)
+├── models/                 # Model files directory (created at runtime)
+│   ├── dbd_model_with_bp.pth
+│   ├── dbd_model_no_bp.pth
+│   ├── scaler_with_bp.pkl
+│   ├── scaler_no_bp.pkl
+│   ├── model_info_with_bp.pkl
+│   ├── model_info_no_bp.pkl
+│   └── data_hash.txt      # Hash of training data (for change detection)
+├── DBDData.csv            # Training data (included in image, not repo)
 ├── Dockerfile             # Docker image definition
 ├── docker-compose.yml     # Docker Compose configuration
 ├── render.yaml           # Render cloud deployment configuration
 ├── requirements.txt       # Python dependencies
 ├── run_local.py          # Local development runner (sets up paths, runs Flask)
-├── start.sh              # Container startup script (trains models, then starts Flask)
+├── start.sh              # Container start script (trains models, starts app)
 ├── README.md             # Project documentation
-└── CREDITS.md            # Attribution for game assets and third-party resources
+└── CREDITS.md            # Attribution for game assets and external resources
 ```
 
 **Generated Model Files** (created at runtime, not in repo):
@@ -90,6 +98,14 @@ DBDPrediction/
 - `scaler_no_bp.pkl` - Feature scaler (without bloodpoints)
 - `model_info_with_bp.pkl` - Model metadata (with bloodpoints)
 - `model_info_no_bp.pkl` - Model metadata (without bloodpoints)
+- `data_hash.txt` - Hash of training data (for detecting changes)
+
+**Model File Locations**:
+- **Local development**: Models are saved to project root (`.`) or `models/` directory
+- **Docker build**: Models are trained to `/app/` during image build
+- **Docker Compose**: Models are persisted to `./models/` directory (mounted to `/app/models` in container)
+- **Render deployment**: Models are pre-trained in image at `/app/` and used directly to not waste time as resources are much more limited on Render
+- **Note**: The application checks multiple locations (`MODEL_OUTPUT_DIR`, current directory, project root, `/app/models`, `/app`) to find model files
 
 ### Data/Models/Services
 
@@ -109,7 +125,7 @@ DBDPrediction/
   - Items and equipment (item type, powerful add-ons)
   - Map information (map type, map area)
   - Perks (exhaustion perks, chase perks count, decisive strike, unbreakable, off the record, adrenaline)
-  - Bloodpoints (survivor BP, killer BP)
+  - Match Bloodpoints (survivor BP, killer BP)
 - **Input Features** (Without BP model): Same as above, excluding bloodpoint features
 - **Output**: Binary classification probability (escape vs. sacrifice)
 - **Training**: Automatically trains both models on container startup with early stopping (max 100 epochs, patience 5)
@@ -185,10 +201,10 @@ The app will start on `http://127.0.0.1:5000` (or `http://localhost:5000`).
 **Important Notes for Local Development:**
 
 - Models must be trained before running the app (use `python src/train_model.py`)
-- Models are saved to the project root directory (`.`), not `/app/` like in Docker
+- Models are saved to the project root directory (`.`) by default, or can be saved to `models/` directory if `MODEL_OUTPUT_DIR` is set
 - The `run_local.py` script automatically sets up the correct paths for templates and models
 - If you see "Model not loaded" errors, make sure you've trained the models first
-- The app looks for models in: current directory, project root, `/app/`, and `project_root/app/`
+- The app looks for models in multiple locations: `MODEL_OUTPUT_DIR` env var, current directory, project root, `models/` directory, `/app/models/`, and `/app/`
 
 ### Docker
 
@@ -253,7 +269,7 @@ docker-compose build
 docker-compose up -d
 ```
 
-**Note**: Models are pre-trained during Docker build and included in the image. When running locally, the container will automatically check if the data file has changed and retrain if needed (takes 2-5 minutes if retraining is required). This allows you to update `DBDData.csv` and have the models automatically retrain with the new data. The web interface includes a toggle switch to select between the "With Bloodpoints" and "Without Bloodpoints" models.
+**Note**: Models are pre-trained during Docker build and included in the image at `/app/`. When running with Docker Compose, models are saved to the local `./models/` directory (mounted to `/app/models` in the container) to avoid retraining on every restart as this takes resources and time (slowing down the overall process upon launch, especially for web deployment). The container will automatically check if the data file has changed (via hash comparison) and retrain if needed (takes 2-5 minutes if retraining is required). This allows you to update `DBDData.csv` and have the models automatically retrain with the new data. The web interface includes a toggle switch to select between the "With Match Bloodpoints" and "Without Match Bloodpoints" models.
 
 **For Render deployments**: Models are pre-trained in the Docker image, so Render uses them directly without retraining (1-2 minutes). To update models on Render, rebuild and redeploy the Docker image with updated data.
 
