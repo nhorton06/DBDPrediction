@@ -393,7 +393,7 @@ To update models with new data when Render pulls from Docker Hub:
 
 **Monitoring & Observability**:
 - **Health Checks**: `/health` endpoint reports model loading status for both models
-- **Logging**: Flask development server logs all requests to stdout (captured by Docker)
+- **Logging**: Flask development server logs all requests to stdout (captured by Docker) and Render has log files available for monitoring while it's running
 - **Limitations**: 
   - No structured logging (JSON format)
   - No metrics collection (request rates, latency, error rates)
@@ -525,6 +525,7 @@ To update models with new data when Render pulls from Docker Hub:
 
 **GitHub Repo**: https://github.com/nhorton06/DBDPrediction
 
-**Public Cloud App**: https://dbd-calculator.onrender.com/
+**Public Cloud App**: https://dbd-calculator.onrender.com/ 
+*Note: this site may take a few minutes to load after periods of inactivity*
 
 **Credits & Attribution**: See [CREDITS.md](CREDITS.md) for attribution of game assets and third-party resources.
