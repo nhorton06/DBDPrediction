@@ -1091,21 +1091,33 @@
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="map_type">
+                        <label>
                             Map Type
+                            <span class="info-icon">?
+                                <span class="tooltip compact">
+                                    Automatically set based on selected map.
+                                </span>
+                            </span>
                         </label>
-                        <select id="map_type" name="map_type" required>
-                            <option value="">-- Select --</option>
-                            <option value="Outdoor">Outdoor</option>
-                            <option value="Indoor">Indoor</option>
-                        </select>
+                        <div id="map_type_display" style="padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 5px; color: var(--text-secondary); min-height: 20px;">
+                            <span style="color: var(--text-secondary); font-style: italic;">Select a map to see type</span>
+                        </div>
+                        <input type="hidden" id="map_type" name="map_type" required>
                     </div>
                     
                     <div class="form-group">
-                        <label for="map_area">
+                        <label>
                             Map Area (m²)
+                            <span class="info-icon">?
+                                <span class="tooltip compact">
+                                    Automatically set based on selected map.
+                                </span>
+                            </span>
                         </label>
-                        <input type="number" id="map_area" name="map_area" min="0" step="0.01" placeholder="Enter area in square meters" required>
+                        <div id="map_area_display" style="padding: 10px; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 5px; color: var(--text-secondary); min-height: 20px;">
+                            <span style="color: var(--text-secondary); font-style: italic;">Select a map to see area</span>
+                        </div>
+                        <input type="hidden" id="map_area" name="map_area" required>
                     </div>
                 </div>
             </div>
@@ -1305,6 +1317,14 @@
                 <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9em;">
                     Compare your current configuration with another setup.
                 </p>
+                <div style="margin-bottom: 15px;">
+                    <button type="button" class="submit-btn" id="copyCurrentBtn" style="font-size: 0.9em; padding: 8px 15px; margin-right: 10px;">
+                        Copy Current to Compare
+                    </button>
+                    <button type="button" class="submit-btn" id="compareBtn" style="font-size: 0.9em; padding: 8px 15px; background: linear-gradient(135deg, #1a3a4d 0%, #0d1a26 100%);">
+                        Calculate Comparison
+                    </button>
+                </div>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px;">
                     <div>
                         <h3 style="color: var(--accent-red); margin-bottom: 10px;">Current Configuration</h3>
@@ -1314,15 +1334,9 @@
                     </div>
                     <div>
                         <h3 style="color: var(--accent-red); margin-bottom: 10px;">Comparison Configuration</h3>
-                        <button type="button" class="submit-btn" id="copyCurrentBtn" style="width: 100%; margin-bottom: 10px; font-size: 0.9em; padding: 8px;">
-                            Copy Current to Compare
-                        </button>
                         <div id="compareOther" style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px; min-height: 200px;">
                             <p style="color: var(--text-secondary);">Click "Copy Current" to start comparing</p>
                         </div>
-                        <button type="button" class="submit-btn" id="compareBtn" style="width: 100%; margin-top: 10px; font-size: 0.9em; padding: 8px; background: linear-gradient(135deg, #1a3a4d 0%, #0d1a26 100%);">
-                            Calculate Comparison
-                        </button>
                     </div>
                 </div>
                 <div id="compareResults" style="display: none; margin-top: 20px;"></div>
@@ -1430,7 +1444,9 @@
         // Perk count validation (survivors can only have 4 perks)
         function countPerks() {
             const exhaustionPerk = document.getElementById('exhaustion_perk').value;
-            const exhaustionCount = (exhaustionPerk && exhaustionPerk !== '' && exhaustionPerk !== '-- Select --' && exhaustionPerk !== 'None') ? 1 : 0;
+            // DHBL counts as 2 perks, all other exhaustion perks count as 1
+            const exhaustionCount = (exhaustionPerk && exhaustionPerk !== '' && exhaustionPerk !== '-- Select --' && exhaustionPerk !== 'None') 
+                ? (exhaustionPerk === 'DHBL' ? 2 : 1) : 0;
             const chasePerks = parseInt(document.getElementById('chase_perks').value) || 0;
             const decisiveStrike = document.getElementById('decisive_strike').value === 'Yes' ? 1 : 0;
             const unbreakable = document.getElementById('unbreakable').value === 'Yes' ? 1 : 0;
@@ -1864,7 +1880,12 @@
                         item.className = 'autocomplete-item';
                         item.textContent = map.display;
                         item.dataset.fullName = map.fullName;
-                        item.addEventListener('click', () => selectMap(map.fullName));
+                        item.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('Map item clicked:', map.fullName);
+                            selectMap(map.fullName);
+                        });
                         mapDropdown.appendChild(item);
                     });
                 }
@@ -1873,36 +1894,126 @@
             }
             
             function selectMap(fullName) {
+                console.log('selectMap called with:', fullName);
+                
+                // Set flag to prevent realm change handler from clearing map
+                window.isSelectingMap = true;
+                
+                // Get fresh references to elements in case they've changed
+                const mapInputEl = document.getElementById('map_name');
+                const mapValueEl = document.getElementById('map_name_value');
+                
+                if (!mapInputEl || !mapValueEl) {
+                    console.error('Map input elements not found in selectMap');
+                    window.isSelectingMap = false;
+                    return;
+                }
+                
                 // Store full name in hidden field, but display only map name (without realm)
-                mapValue.value = fullName;
+                mapValueEl.value = fullName;
                 // Extract just the map name (everything after " - ")
                 const mapNameOnly = fullName.includes(' - ') ? fullName.split(' - ').slice(1).join(' - ') : fullName;
-                mapInput.value = mapNameOnly;
-                mapDropdown.classList.remove('show');
                 
-                // Auto-fill map type and area
-                if (mapNameToData[fullName]) {
-                    const mapData = mapNameToData[fullName];
-                    const mapTypeEl = document.getElementById('map_type');
-                    const mapAreaEl = document.getElementById('map_area');
-                    
-                    if (mapTypeEl) {
-                        mapTypeEl.value = mapData.type;
-                    }
-                    if (mapAreaEl) {
-                        mapAreaEl.value = mapData.area;
-                    }
-                    updateMapAreaValidation();
+                console.log('Setting map name to:', mapNameOnly);
+                console.log('Current map input value before:', mapInputEl.value);
+                
+                // Store the expected value so we can restore it if it gets cleared
+                mapInputEl._expectedValue = mapNameOnly;
+                mapValueEl._expectedValue = fullName;
+                
+                // Set a flag to indicate this is a programmatic change
+                mapInputEl._programmaticChange = true;
+                
+                // Set the value using multiple methods to ensure it sticks
+                mapInputEl.value = mapNameOnly;
+                mapInputEl.setAttribute('value', mapNameOnly);
+                
+                // Don't dispatch input event - it might trigger the filter and clear the value
+                // Just dispatch change event if needed
+                const changeEvent = new Event('change', { bubbles: true });
+                mapInputEl.dispatchEvent(changeEvent);
+                
+                console.log('Map input value after setting:', mapInputEl.value);
+                
+                // Close dropdown
+                const mapDropdownEl = document.getElementById('map_name_dropdown');
+                if (mapDropdownEl) {
+                    mapDropdownEl.classList.remove('show');
                 }
+                
+                // Auto-fill map type and area (both hidden fields and display divs)
+                if (mapNameToData && mapNameToData[fullName]) {
+                    const mapData = mapNameToData[fullName];
+                    updateMapTypeAndAreaDisplay(mapData.type, mapData.area);
+                }
+                
+                // Set up a watcher to restore the value if it gets cleared
+                const restoreValue = () => {
+                    if (mapInputEl._expectedValue && mapInputEl.value !== mapInputEl._expectedValue) {
+                        console.warn('Map input was cleared! Restoring to:', mapInputEl._expectedValue);
+                        mapInputEl._programmaticChange = true;
+                        mapInputEl.value = mapInputEl._expectedValue;
+                        mapInputEl.setAttribute('value', mapInputEl._expectedValue);
+                        if (mapValueEl._expectedValue) {
+                            mapValueEl.value = mapValueEl._expectedValue;
+                        }
+                    }
+                };
+                
+                // Watch for value changes using MutationObserver
+                if (!mapInputEl._valueObserver) {
+                    mapInputEl._valueObserver = new MutationObserver(() => {
+                        restoreValue();
+                    });
+                    mapInputEl._valueObserver.observe(mapInputEl, {
+                        attributes: true,
+                        attributeFilter: ['value'],
+                        childList: false,
+                        subtree: false
+                    });
+                }
+                
+                // Also check periodically for a short time
+                let checkCount = 0;
+                const maxChecks = 20; // Check for 2 seconds (20 * 100ms)
+                const checkInterval = setInterval(() => {
+                    checkCount++;
+                    restoreValue();
+                    if (checkCount >= maxChecks) {
+                        clearInterval(checkInterval);
+                        // Clear expected values after we're done watching
+                        delete mapInputEl._expectedValue;
+                        delete mapValueEl._expectedValue;
+                        window.isSelectingMap = false;
+                    }
+                }, 100);
+                
+                // Clear the flag after a delay to allow all updates to complete
+                setTimeout(() => {
+                    // Verify the value is still set
+                    if (mapInputEl.value !== mapNameOnly) {
+                        console.warn('Map input value was changed after selectMap! Current:', mapInputEl.value, 'Expected:', mapNameOnly);
+                        // Try setting it again
+                        restoreValue();
+                    } else {
+                        console.log('Map input value confirmed:', mapInputEl.value);
+                    }
+                }, 100);
             }
             
             // Make selectMap globally accessible for applyOptimization
             window.selectMap = selectMap;
             
             mapInput.addEventListener('input', function() {
+                // Don't filter if the value was just set programmatically (check if it matches a known map)
                 const query = this.value;
-                const results = filterMaps(query);
-                showDropdown(results);
+                // Only show dropdown if user is actively typing (not if value was just set)
+                // Check if this is a programmatic change by looking at a flag
+                if (!this._programmaticChange) {
+                    const results = filterMaps(query);
+                    showDropdown(results);
+                }
+                this._programmaticChange = false;
             });
             
             mapInput.addEventListener('focus', function() {
@@ -1937,6 +2048,10 @@
             
             // Close dropdown when clicking outside
             document.addEventListener('click', function(e) {
+                // Don't close if clicking on a dropdown item (let selectMap handle it)
+                if (e.target.classList && e.target.classList.contains('autocomplete-item')) {
+                    return;
+                }
                 if (!mapInput.contains(e.target) && !mapDropdown.contains(e.target)) {
                     mapDropdown.classList.remove('show');
                 }
@@ -1948,6 +2063,8 @@
             
             function updateCurrentRealm() {
                 const value = realmValue ? realmValue.value : '';
+                const previousRealm = currentRealm;
+                
                 if (allRealms.includes(value)) {
                     currentRealm = value;
                 } else {
@@ -1960,8 +2077,10 @@
                         currentRealm = null;
                     }
                 }
-                // Clear map input when realm changes
-                if (currentRealm !== null) {
+                
+                // Only clear map input when realm actually changes (not just when observer fires)
+                // and only if we're not applying optimization or selecting a map
+                if (currentRealm !== previousRealm && currentRealm !== null && !window.isApplyingOptimization && !window.isSelectingMap) {
                     mapInput.value = '';
                     mapValue.value = '';
                 }
@@ -1993,75 +2112,36 @@
         setupRealmAutocomplete();
         setupMapAutocomplete();
         
-        function updateMapAreaValidation() {
+        // Helper function to update map type and area display
+        function updateMapTypeAndAreaDisplay(mapType, mapArea) {
             const mapTypeEl = document.getElementById('map_type');
             const mapAreaEl = document.getElementById('map_area');
+            const mapTypeDisplay = document.getElementById('map_type_display');
+            const mapAreaDisplay = document.getElementById('map_area_display');
             
-            if (!mapTypeEl || !mapAreaEl) return;
-            
-            const mapType = mapTypeEl.value;
-            const mapArea = parseFloat(mapAreaEl.value);
-            
-            // Get valid areas based on map type
-            let validAreas = [];
-            let areaLabel = '';
-            
-            if (mapType === 'Indoor') {
-                validAreas = indoorMapAreas;
-                areaLabel = 'Indoor';
-            } else if (mapType === 'Outdoor') {
-                validAreas = outdoorMapAreas;
-                areaLabel = 'Outdoor';
+            // Update hidden fields (for form submission)
+            if (mapTypeEl && mapType) {
+                mapTypeEl.value = mapType;
+            }
+            if (mapAreaEl && mapArea !== undefined && mapArea !== null) {
+                mapAreaEl.value = mapArea;
             }
             
-            // Update placeholder with valid values
-            if (validAreas.length > 0) {
-                mapAreaEl.placeholder = `Valid ${areaLabel} areas: ${validAreas.join(', ')}`;
-            } else {
-                mapAreaEl.placeholder = 'Enter area in square meters';
-            }
-            
-            // Validate if both map type and area are set
-            if (mapType && !isNaN(mapArea)) {
-                const isValid = validAreas.includes(mapArea);
-                
-                // Remove existing validation indicator
-                let indicator = document.getElementById('map-area-indicator');
-                if (!indicator) {
-                    indicator = document.createElement('div');
-                    indicator.id = 'map-area-indicator';
-                    indicator.style.cssText = 'text-align: center; margin-top: 5px; padding: 5px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; font-size: 0.9em;';
-                    mapAreaEl.parentElement.appendChild(indicator);
-                }
-                
-                if (isValid) {
-                    indicator.innerHTML = `<span style="color: #4dff4d;">✓ Valid ${areaLabel} map area</span>`;
-                    mapAreaEl.style.borderColor = '#4dff4d';
+            // Update display divs
+            if (mapTypeDisplay) {
+                if (mapType) {
+                    mapTypeDisplay.innerHTML = `<span style="color: var(--text-primary); font-weight: 500;">${mapType}</span>`;
                 } else {
-                    indicator.innerHTML = `<span style="color: #ff6666;">⚠ Invalid ${areaLabel} map area. Valid values: ${validAreas.join(', ')}</span>`;
-                    mapAreaEl.style.borderColor = '#ff6666';
+                    mapTypeDisplay.innerHTML = `<span style="color: var(--text-secondary); font-style: italic;">Select a map to see type</span>`;
                 }
-            } else {
-                // Clear indicator if map type not selected
-                const indicator = document.getElementById('map-area-indicator');
-                if (indicator) {
-                    indicator.innerHTML = '';
-                }
-                mapAreaEl.style.borderColor = '';
             }
-        }
-        
-        // Add event listeners for map validation
-        const mapTypeEl = document.getElementById('map_type');
-        const mapAreaEl = document.getElementById('map_area');
-        
-        if (mapTypeEl) {
-            mapTypeEl.addEventListener('change', updateMapAreaValidation);
-        }
-        
-        if (mapAreaEl) {
-            mapAreaEl.addEventListener('input', updateMapAreaValidation);
-            mapAreaEl.addEventListener('blur', updateMapAreaValidation);
+            if (mapAreaDisplay) {
+                if (mapArea !== undefined && mapArea !== null) {
+                    mapAreaDisplay.innerHTML = `<span style="color: var(--text-primary); font-weight: 500;">${parseFloat(mapArea).toLocaleString()}</span>`;
+                } else {
+                    mapAreaDisplay.innerHTML = `<span style="color: var(--text-secondary); font-style: italic;">Select a map to see area</span>`;
+                }
+            }
         }
         
         form.addEventListener('submit', async (e) => {
@@ -2298,8 +2378,26 @@
             const selectedExhaustionFeature = `Exhaustion_${selectedExhaustionPerk}`;
             const selectedMapType = mapTypeEl ? mapTypeEl.value : '';
             const selectedMapTypeFeature = `MapType_${selectedMapType}`;
+            
+            // Get currently selected values for binary/categorical fields
+            const survivorGenderEl = document.getElementById('survivor_gender');
+            const selectedSurvivorGender = survivorGenderEl ? survivorGenderEl.value : '';
+            const prestigeEl = document.getElementById('prestige');
+            const selectedPrestige = prestigeEl ? parseFloat(prestigeEl.value) || 0 : 0;
+            
+            // Get selected values for all binary Yes/No fields
             const selectedSteamPlayer = steamEl ? steamEl.value : '';
             const selectedAnonymousMode = anonymousEl ? anonymousEl.value : '';
+            const powerfulAddonsEl = document.getElementById('powerful_add_ons');
+            const selectedPowerfulAddons = powerfulAddonsEl ? powerfulAddonsEl.value : '';
+            const decisiveStrikeEl = document.getElementById('decisive_strike');
+            const selectedDecisiveStrike = decisiveStrikeEl ? decisiveStrikeEl.value : '';
+            const unbreakableEl = document.getElementById('unbreakable');
+            const selectedUnbreakable = unbreakableEl ? unbreakableEl.value : '';
+            const offTheRecordEl = document.getElementById('off_the_record');
+            const selectedOffTheRecord = offTheRecordEl ? offTheRecordEl.value : '';
+            const adrenalineEl = document.getElementById('adrenaline');
+            const selectedAdrenaline = adrenalineEl ? adrenalineEl.value : '';
             
             // Map model feature names to form field order (matching HTML form order)
             const featureOrder = [
@@ -2350,24 +2448,55 @@
                 // Handle special cases with custom display names
                 if (lowerFeature.includes('survivor gender') || lowerFeature.includes('is_female')) {
                     fieldName = 'survivor_gender';
-                    // If positive gradient, Female (1) increases escape chance, so show "Female"
-                    // If negative gradient, Male (0) increases escape chance, so show "Male"
+                    // Show the impact of the currently selected gender value
                     const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
-                    displayName = isPositive ? 'Female' : 'Male';
+                    if (selectedSurvivorGender === 'F') {
+                        // Female is selected (Is_Female = 1)
+                        // Positive gradient means Female increases escape chance
+                        // Negative gradient means Female decreases escape chance
+                        displayName = isPositive ? 'Female' : 'Female';
+                        // Store direction info for display
+                        if (typeof info === 'object') {
+                            info._selectedValue = 'Female';
+                            info._increases = isPositive;
+                        }
+                    } else if (selectedSurvivorGender === 'M') {
+                        // Male is selected (Is_Female = 0)
+                        // Positive gradient means switching to Female would increase escape chance (so Male decreases it)
+                        // Negative gradient means switching to Female would decrease escape chance (so Male increases it)
+                        displayName = isPositive ? 'Male' : 'Male';
+                        // Store direction info for display (inverse of gradient since Male is opposite of Female)
+                        if (typeof info === 'object') {
+                            info._selectedValue = 'Male';
+                            info._increases = !isPositive; // Inverse because Male is 0, Female is 1
+                        }
+                    } else {
+                        // Fallback
+                        displayName = isPositive ? 'Female' : 'Male';
+                    }
                 } else if (lowerFeature.includes('prestige')) {
                     fieldName = 'prestige';
-                    // Determine direction from gradient
+                    // Show the impact of the currently selected prestige value
                     const isPositive = typeof info === 'object' ? 
                         (info.raw_gradient !== undefined && info.raw_gradient > 0) || 
                         (info.direction === 'positive') : null;
-                    // If positive gradient, higher prestige increases escape chance, so show "Higher Prestige"
-                    // If negative gradient, lower prestige increases escape chance, so show "Lower Prestige"
+                    // The gradient shows the impact of increasing prestige
+                    // If positive, higher prestige helps; if negative, lower prestige helps
+                    // But we want to show the impact of the currently selected prestige value
                     if (isPositive === true) {
-                        displayName = 'Higher Prestige';
+                        displayName = `Prestige ${selectedPrestige}`;
+                        if (typeof info === 'object') {
+                            info._selectedValue = selectedPrestige;
+                            info._increases = true; // Higher prestige increases escape chance
+                        }
                     } else if (isPositive === false) {
-                        displayName = 'Lower Prestige';
+                        displayName = `Prestige ${selectedPrestige}`;
+                        if (typeof info === 'object') {
+                            info._selectedValue = selectedPrestige;
+                            info._increases = false; // Higher prestige decreases escape chance (so current prestige decreases it)
+                        }
                     } else {
-                        displayName = 'Prestige'; // Fallback if direction unknown
+                        displayName = `Prestige ${selectedPrestige}`;
                     }
                 } else if (lowerFeature.includes('brought_')) {
                     // Only show the importance for the item that was actually selected
@@ -2401,7 +2530,7 @@
                         continue;
                     }
                 } else {
-                    // Try to match from featureOrder list
+                    // Try to match from featureOrder list first
                     for (const [modelName, formField] of featureOrder) {
                         if (feature === modelName || feature.includes(modelName.split('_')[0])) {
                             const fieldOrder = featureToOrder[modelName] !== undefined ? featureToOrder[modelName] : Infinity;
@@ -2409,8 +2538,113 @@
                                 order = fieldOrder;
                                 fieldName = formField;
                                 
-                                // Set display name for map_area if matched here
-                                if (formField === 'map_area' && !displayName) {
+                                // Handle binary Yes/No features from featureOrder
+                                if (formField === 'steam_player' && !displayName) {
+                                    const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                                    if (selectedSteamPlayer === 'Yes') {
+                                        displayName = 'Steam Player';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'Yes';
+                                            info._increases = isPositive;
+                                        }
+                                    } else {
+                                        displayName = 'Not Steam Player';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'No';
+                                            info._increases = !isPositive;
+                                        }
+                                    }
+                                } else if (formField === 'anonymous_mode' && !displayName) {
+                                    const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                                    if (selectedAnonymousMode === 'Yes') {
+                                        displayName = 'Anonymous Mode';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'Yes';
+                                            info._increases = isPositive;
+                                        }
+                                    } else {
+                                        displayName = 'Anonymous Mode Off';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'No';
+                                            info._increases = !isPositive;
+                                        }
+                                    }
+                                } else if (formField === 'powerful_add_ons' && !displayName) {
+                                    const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                                    if (selectedPowerfulAddons === 'Yes') {
+                                        displayName = 'Powerful Add-ons';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'Yes';
+                                            info._increases = isPositive;
+                                        }
+                                    } else {
+                                        displayName = 'No Powerful Add-ons';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'No';
+                                            info._increases = !isPositive;
+                                        }
+                                    }
+                                } else if (formField === 'decisive_strike' && !displayName) {
+                                    const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                                    if (selectedDecisiveStrike === 'Yes') {
+                                        displayName = 'Decisive Strike';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'Yes';
+                                            info._increases = isPositive;
+                                        }
+                                    } else {
+                                        displayName = 'No Decisive Strike';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'No';
+                                            info._increases = !isPositive;
+                                        }
+                                    }
+                                } else if (formField === 'unbreakable' && !displayName) {
+                                    const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                                    if (selectedUnbreakable === 'Yes') {
+                                        displayName = 'Unbreakable';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'Yes';
+                                            info._increases = isPositive;
+                                        }
+                                    } else {
+                                        displayName = 'No Unbreakable';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'No';
+                                            info._increases = !isPositive;
+                                        }
+                                    }
+                                } else if (formField === 'off_the_record' && !displayName) {
+                                    const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                                    if (selectedOffTheRecord === 'Yes') {
+                                        displayName = 'Off the Record';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'Yes';
+                                            info._increases = isPositive;
+                                        }
+                                    } else {
+                                        displayName = 'No Off the Record';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'No';
+                                            info._increases = !isPositive;
+                                        }
+                                    }
+                                } else if (formField === 'adrenaline' && !displayName) {
+                                    const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                                    if (selectedAdrenaline === 'Yes') {
+                                        displayName = 'Adrenaline';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'Yes';
+                                            info._increases = isPositive;
+                                        }
+                                    } else {
+                                        displayName = 'No Adrenaline';
+                                        if (typeof info === 'object') {
+                                            info._selectedValue = 'No';
+                                            info._increases = !isPositive;
+                                        }
+                                    }
+                                } else if (formField === 'map_area' && !displayName) {
                                     const isPositive = typeof info === 'object' ? 
                                         (info.raw_gradient !== undefined && info.raw_gradient > 0) || 
                                         (info.direction === 'positive') : null;
@@ -2428,19 +2662,66 @@
                     if (!fieldName) {
                         if (lowerFeature.includes('steam')) {
                             fieldName = 'steam_player';
-                            // Show which value helps: positive gradient means value=1 (Yes/Steam Player) helps
-                            // negative gradient means value=0 (No/Not Steam Player) helps
+                            // Show the impact of the currently selected value
                             const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
-                            displayName = isPositive ? 'Steam Player' : 'Not Steam Player';
+                            if (selectedSteamPlayer === 'Yes') {
+                                // Yes is selected (value = 1)
+                                // Positive gradient means Yes increases escape chance
+                                // Negative gradient means Yes decreases escape chance
+                                displayName = 'Steam Player';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'Yes';
+                                    info._increases = isPositive;
+                                }
+                            } else {
+                                // No is selected (value = 0)
+                                // Positive gradient means switching to Yes would help, so No decreases it (inverse)
+                                // Negative gradient means switching to Yes would hurt, so No increases it (inverse)
+                                displayName = 'Not Steam Player';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'No';
+                                    info._increases = !isPositive; // Inverse
+                                }
+                            }
                         } else if (lowerFeature.includes('anonymous')) {
                             fieldName = 'anonymous_mode';
-                            // Show which value helps: positive gradient means value=1 (Yes/On) helps
-                            // negative gradient means value=0 (No/Off) helps
+                            // Show the impact of the currently selected value
                             const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
-                            displayName = isPositive ? 'Anonymous Mode On' : 'Anonymous Mode Off';
+                            if (selectedAnonymousMode === 'Yes') {
+                                // Yes is selected (value = 1)
+                                displayName = 'Anonymous Mode';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'Yes';
+                                    info._increases = isPositive;
+                                }
+                            } else {
+                                // No is selected (value = 0)
+                                displayName = 'Anonymous Mode Off';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'No';
+                                    info._increases = !isPositive; // Inverse
+                                }
+                            }
                         }
                         else if (lowerFeature.includes('prestige')) fieldName = 'prestige';
-                        else if (lowerFeature.includes('powerful add')) fieldName = 'powerful_add_ons';
+                        else if (lowerFeature.includes('powerful add')) {
+                            fieldName = 'powerful_add_ons';
+                            // Show the impact of the currently selected value
+                            const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                            if (selectedPowerfulAddons === 'Yes') {
+                                displayName = 'Powerful Add-ons';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'Yes';
+                                    info._increases = isPositive;
+                                }
+                            } else {
+                                displayName = 'No Powerful Add-ons';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'No';
+                                    info._increases = !isPositive; // Inverse
+                                }
+                            }
+                        }
                         else if (lowerFeature.includes('map area')) {
                             fieldName = 'map_area';
                             // Determine direction from gradient
@@ -2458,10 +2739,78 @@
                             }
                         }
                         else if (lowerFeature.includes('chase perk')) fieldName = 'chase_perks';
-                        else if (lowerFeature.includes('decisive')) fieldName = 'decisive_strike';
-                        else if (lowerFeature.includes('unbreakable')) fieldName = 'unbreakable';
-                        else if (lowerFeature.includes('off the record')) fieldName = 'off_the_record';
-                        else if (lowerFeature.includes('adrenaline')) fieldName = 'adrenaline';
+                        else if (lowerFeature.includes('decisive')) {
+                            fieldName = 'decisive_strike';
+                            // Show the impact of the currently selected value
+                            const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                            if (selectedDecisiveStrike === 'Yes') {
+                                displayName = 'Decisive Strike';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'Yes';
+                                    info._increases = isPositive;
+                                }
+                            } else {
+                                displayName = 'No Decisive Strike';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'No';
+                                    info._increases = !isPositive; // Inverse
+                                }
+                            }
+                        }
+                        else if (lowerFeature.includes('unbreakable')) {
+                            fieldName = 'unbreakable';
+                            // Show the impact of the currently selected value
+                            const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                            if (selectedUnbreakable === 'Yes') {
+                                displayName = 'Unbreakable';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'Yes';
+                                    info._increases = isPositive;
+                                }
+                            } else {
+                                displayName = 'No Unbreakable';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'No';
+                                    info._increases = !isPositive; // Inverse
+                                }
+                            }
+                        }
+                        else if (lowerFeature.includes('off the record')) {
+                            fieldName = 'off_the_record';
+                            // Show the impact of the currently selected value
+                            const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                            if (selectedOffTheRecord === 'Yes') {
+                                displayName = 'Off the Record';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'Yes';
+                                    info._increases = isPositive;
+                                }
+                            } else {
+                                displayName = 'No Off the Record';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'No';
+                                    info._increases = !isPositive; // Inverse
+                                }
+                            }
+                        }
+                        else if (lowerFeature.includes('adrenaline')) {
+                            fieldName = 'adrenaline';
+                            // Show the impact of the currently selected value
+                            const isPositive = typeof info === 'object' ? (info.raw_gradient > 0 || info.direction === 'positive') : false;
+                            if (selectedAdrenaline === 'Yes') {
+                                displayName = 'Adrenaline';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'Yes';
+                                    info._increases = isPositive;
+                                }
+                            } else {
+                                displayName = 'No Adrenaline';
+                                if (typeof info === 'object') {
+                                    info._selectedValue = 'No';
+                                    info._increases = !isPositive; // Inverse
+                                }
+                            }
+                        }
                         else if (lowerFeature.includes('survivor bp')) fieldName = 'survivor_bp';
                         else if (lowerFeature.includes('killer bp')) fieldName = 'killer_bp';
                     }
@@ -2524,25 +2873,31 @@
                     if (typeof info === 'object' && info !== null) {
                         magnitude = info.magnitude || info;
                         direction = info.direction;
-                        // Determine direction from raw_gradient if available, otherwise use direction field
-                        if (info.raw_gradient !== undefined && info.raw_gradient !== null) {
-                            // Use raw_gradient to determine direction (even if very small)
-                            // Check if it's significantly different from 0 (use a small threshold to handle rounding)
-                            const threshold = 1e-6;
-                            if (info.raw_gradient > threshold) {
-                                isPositive = true;
-                            } else if (info.raw_gradient < -threshold) {
-                                isPositive = false;
-                            } else {
-                                // Very close to zero - check direction field
-                                isPositive = direction === 'positive' ? true : (direction === 'negative' ? false : null);
-                            }
-                        } else if (direction !== undefined && direction !== null) {
-                            // Fall back to direction field
-                            isPositive = direction === 'positive' ? true : (direction === 'negative' ? false : null);
+                        
+                        // Use stored _increases value if available (for selected values like gender, prestige)
+                        if (info._increases !== undefined) {
+                            isPositive = info._increases;
                         } else {
-                            // Unknown direction
-                            isPositive = null;
+                            // Determine direction from raw_gradient if available, otherwise use direction field
+                            if (info.raw_gradient !== undefined && info.raw_gradient !== null) {
+                                // Use raw_gradient to determine direction (even if very small)
+                                // Check if it's significantly different from 0 (use a small threshold to handle rounding)
+                                const threshold = 1e-6;
+                                if (info.raw_gradient > threshold) {
+                                    isPositive = true;
+                                } else if (info.raw_gradient < -threshold) {
+                                    isPositive = false;
+                                } else {
+                                    // Very close to zero - check direction field
+                                    isPositive = direction === 'positive' ? true : (direction === 'negative' ? false : null);
+                                }
+                            } else if (direction !== undefined && direction !== null) {
+                                // Fall back to direction field
+                                isPositive = direction === 'positive' ? true : (direction === 'negative' ? false : null);
+                            } else {
+                                // Unknown direction
+                                isPositive = null;
+                            }
                         }
                     } else {
                         // Old format - just show magnitude
@@ -2770,9 +3125,16 @@
         }
         
         window.applyOptimization = function() {
-            if (!window.optimizedConfig) return;
+            if (!window.optimizedConfig) {
+                console.error('No optimized config found!');
+                return;
+            }
             
             const config = window.optimizedConfig;
+            console.log('Applying optimization with config:', config);
+            
+            // Set flag to prevent realm change handler from clearing map
+            window.isApplyingOptimization = true;
             
             // Apply all values to form (use !== undefined to handle falsy values like "None", "No", 0)
             if (config.survivor_gender !== undefined) {
@@ -2800,61 +3162,60 @@
                 if (exhaustionEl) exhaustionEl.value = config.exhaustion_perk;
             }
             
-            // Handle realm first (if provided), which will auto-fill map_type and map_area
+            // Handle realm first (if provided)
             if (config.realm !== undefined) {
                 const realmEl = document.getElementById('realm');
                 const realmValueEl = document.getElementById('realm_value');
                 if (realmEl) {
                     realmEl.value = config.realm;
                     if (realmValueEl) realmValueEl.value = config.realm;
-                    // Trigger change event to auto-fill map fields
-                    const event = new Event('input', { bubbles: true });
-                    realmEl.dispatchEvent(event);
                 }
             }
             
-            // Set map_type and map_area (these may have been auto-filled by realm, but set them explicitly to be sure)
-            if (config.map_type !== undefined) {
-                const mapTypeEl = document.getElementById('map_type');
-                if (mapTypeEl) mapTypeEl.value = config.map_type;
-            }
-            
-            if (config.map_area !== undefined) {
-                const mapAreaEl = document.getElementById('map_area');
-                if (mapAreaEl) mapAreaEl.value = config.map_area;
-            }
-            
-            // Set map_name based on map_area - find the map that matches the optimized area
-            if (config.map_area !== undefined) {
-                const mapInput = document.getElementById('map_name');
-                const mapValue = document.getElementById('map_name_value');
-                const mapAreaEl = document.getElementById('map_area');
+            // Set map_name based on realm and map_area - find the map that matches both
+            // Use selectMap function to ensure proper handling
+            if (config.map_area !== undefined && config.map_area !== null) {
+                const targetArea = parseFloat(config.map_area);
+                const targetRealm = config.realm;
+                let foundMap = null;
                 
-                if (mapInput && mapValue && mapAreaEl) {
-                    const targetArea = parseFloat(config.map_area);
-                    let foundMap = null;
-                    
-                    // Find any map that matches the optimized area value
-                    for (const [fullName, mapData] of Object.entries(mapNameToData)) {
-                        const mapAreaNum = parseFloat(mapData.area);
-                        if (mapAreaNum === targetArea) {
-                            foundMap = fullName;
+                console.log('Looking for map with area:', targetArea, 'realm:', targetRealm);
+                
+                // First try to find a map matching both realm and area
+                if (targetRealm && realmToMaps && realmToMaps[targetRealm]) {
+                    for (const map of realmToMaps[targetRealm]) {
+                        if (Math.abs(map.area - targetArea) < 0.01) { // Use tolerance for float comparison
+                            foundMap = map.fullName;
+                            console.log('Found map by realm:', foundMap);
                             break;
                         }
                     }
-                    
-                    // If we found a map matching the area, set it
-                    if (foundMap) {
-                        mapValue.value = foundMap;
-                        const mapNameOnly = foundMap.includes(' - ') ? foundMap.split(' - ').slice(1).join(' - ') : foundMap;
-                        mapInput.value = mapNameOnly;
-                        
-                        // Trigger map area validation update
-                        if (typeof updateMapAreaValidation === 'function') {
-                            updateMapAreaValidation();
+                }
+                
+                // If not found by realm, find any map that matches the area
+                if (!foundMap && mapNameToData) {
+                    for (const [fullName, mapData] of Object.entries(mapNameToData)) {
+                        const mapAreaNum = parseFloat(mapData.area);
+                        if (Math.abs(mapAreaNum - targetArea) < 0.01) { // Use tolerance for float comparison
+                            foundMap = fullName;
+                            console.log('Found map by area:', foundMap);
+                            break;
                         }
                     }
                 }
+                
+                // If we found a map, use selectMap function to set it properly
+                if (foundMap && window.selectMap) {
+                    console.log('Setting map via selectMap:', foundMap);
+                    window.selectMap(foundMap);
+                } else if (config.map_type !== undefined && config.map_area !== undefined) {
+                    // If no map found, just update display with config values
+                    console.log('No map found for area:', targetArea);
+                    updateMapTypeAndAreaDisplay(config.map_type, config.map_area);
+                }
+            } else if (config.map_type !== undefined || config.map_area !== undefined) {
+                // If only map_type or map_area is provided without map_area for finding the map
+                updateMapTypeAndAreaDisplay(config.map_type, config.map_area);
             }
             
             if (config.prestige !== undefined) {
@@ -2913,6 +3274,14 @@
             
             // Trigger perk validation update after applying values
             updatePerkValidation();
+            
+            // Clear the optimization flag after a short delay to allow map setting to complete
+            setTimeout(() => {
+                window.isApplyingOptimization = false;
+            }, 300);
+            
+            // Map name is already set above using selectMap function
+            // No need for duplicate setTimeout that could interfere with manual map selection
             
             // Hide the optimization result since values have been applied
             const optimizeResult = document.getElementById('optimizeResult');
@@ -3093,7 +3462,9 @@
         
         // Helper function to count perks
         function countTotalPerks(data) {
-            const exhaustion = data.exhaustion_perk && data.exhaustion_perk !== 'None' ? 1 : 0;
+            // DHBL counts as 2 perks, all other exhaustion perks count as 1
+            const exhaustion = (data.exhaustion_perk && data.exhaustion_perk !== 'None') 
+                ? (data.exhaustion_perk === 'DHBL' ? 2 : 1) : 0;
             const chase = parseInt(data.chase_perks || 0);
             const ds = data.decisive_strike === 'Yes' ? 1 : 0;
             const unbreak = data.unbreakable === 'Yes' ? 1 : 0;
@@ -3110,7 +3481,7 @@
             if (compareTab && compareTab.style.display !== 'none') {
                 const currentData = getFormData();
                 const currentPred = window.lastPrediction || currentPrediction || null;
-                displayConfigSummary('compareCurrent', currentData, currentPred);
+                displayConfigSummary('compareCurrent', currentData, currentPred, window.compareConfig || null);
             }
         }
         
@@ -3156,10 +3527,10 @@
             currentPrediction = window.lastPrediction || currentPrediction || null;
             
             // Display current config
-            displayConfigSummary('compareCurrent', currentData, currentPrediction);
+            displayConfigSummary('compareCurrent', currentData, currentPrediction, window.compareConfig);
             
-            // Copy to compare side (without prediction initially)
-            displayConfigSummary('compareOther', window.compareConfig, null);
+            // Copy to compare side (without prediction initially, but pass currentData for comparison)
+            displayConfigSummary('compareOther', window.compareConfig, null, currentData);
             
             // Show message that they can edit the comparison side
             const compareOtherDiv = document.getElementById('compareOther');
@@ -3218,9 +3589,9 @@
                     throw new Error(comparePredResult.error || 'Failed to get comparison prediction');
                 }
                 
-                // Update displays with fresh predictions
-                displayConfigSummary('compareCurrent', currentData, currentPredResult);
-                displayConfigSummary('compareOther', compareDataToUse, comparePredResult);
+                // Update displays with fresh predictions (pass both configs for comparison)
+                displayConfigSummary('compareCurrent', currentData, currentPredResult, compareDataToUse);
+                displayConfigSummary('compareOther', compareDataToUse, comparePredResult, currentData);
                 
                 // Show comparison results
                 displayComparisonResults(currentPredResult, comparePredResult);
@@ -3247,22 +3618,54 @@
             }
         });
         
-        function displayConfigSummary(containerId, config, prediction) {
+        function displayConfigSummary(containerId, config, prediction, compareConfig = null) {
             const container = document.getElementById(containerId);
             if (!container) return;
             
+            // Helper function to check if values are different
+            const isDifferent = (key) => {
+                if (!compareConfig) return false;
+                const val1 = config[key];
+                const val2 = compareConfig[key];
+                // Handle numeric comparison
+                if (typeof val1 === 'number' && typeof val2 === 'number') {
+                    return Math.abs(val1 - val2) > 0.001; // Small tolerance for floating point
+                }
+                // Handle string comparison
+                return String(val1 || '') !== String(val2 || '');
+            };
+            
+            // Helper function to format value with highlighting if different
+            const formatField = (key, value, formatter = null) => {
+                const formatted = formatter ? formatter(value) : (value || 'N/A');
+                const diff = isDifferent(key);
+                const bgColor = diff ? 'rgba(255, 255, 0, 0.2)' : 'transparent';
+                const borderColor = diff ? 'rgba(255, 255, 0, 0.5)' : 'transparent';
+                return `<span style="background: ${bgColor}; padding: 2px 4px; border-radius: 3px; border: 1px solid ${borderColor}; display: inline-block;">${formatted}</span>`;
+            };
+            
+            // Check if BP model is being used (check model toggle or prediction model_type)
+            const useBpModel = modelToggle ? modelToggle.checked : (prediction && prediction.model_type === 'with_bp');
+            
             let html = '<div style="text-align: left;">';
-            html += `<div style="margin-bottom: 5px;"><strong>Item:</strong> ${config.item || 'None'}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Exhaustion:</strong> ${config.exhaustion_perk || 'None'}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Chase Perks:</strong> ${config.chase_perks || 0}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Decisive Strike:</strong> ${config.decisive_strike || 'No'}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Unbreakable:</strong> ${config.unbreakable || 'No'}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Off the Record:</strong> ${config.off_the_record || 'No'}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Adrenaline:</strong> ${config.adrenaline || 'No'}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Prestige:</strong> ${config.prestige || 0}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Powerful Add-ons:</strong> ${config.powerful_add_ons || 'No'}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Map Type:</strong> ${config.map_type || 'N/A'}</div>`;
-            html += `<div style="margin-bottom: 5px;"><strong>Map Area:</strong> ${config.map_area || 'N/A'}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Survivor Gender:</strong> ${formatField('survivor_gender', config.survivor_gender, (v) => v === 'F' ? 'Female' : v === 'M' ? 'Male' : v || 'N/A')}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Steam Player:</strong> ${formatField('steam_player', config.steam_player)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Anonymous Mode:</strong> ${formatField('anonymous_mode', config.anonymous_mode)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Prestige:</strong> ${formatField('prestige', config.prestige, (v) => v || 0)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Item:</strong> ${formatField('item', config.item, (v) => v || 'None')}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Powerful Add-ons:</strong> ${formatField('powerful_add_ons', config.powerful_add_ons)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Exhaustion:</strong> ${formatField('exhaustion_perk', config.exhaustion_perk, (v) => v || 'None')}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Chase Perks:</strong> ${formatField('chase_perks', config.chase_perks, (v) => v || 0)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Decisive Strike:</strong> ${formatField('decisive_strike', config.decisive_strike)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Unbreakable:</strong> ${formatField('unbreakable', config.unbreakable)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Off the Record:</strong> ${formatField('off_the_record', config.off_the_record)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Adrenaline:</strong> ${formatField('adrenaline', config.adrenaline)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Map Type:</strong> ${formatField('map_type', config.map_type)}</div>`;
+            html += `<div style="margin-bottom: 5px;"><strong>Map Area:</strong> ${formatField('map_area', config.map_area, (v) => v ? v.toLocaleString() : 'N/A')}</div>`;
+            if (useBpModel) {
+                html += `<div style="margin-bottom: 5px;"><strong>Survivor BP:</strong> ${formatField('survivor_bp', config.survivor_bp, (v) => v ? v.toLocaleString() : 'N/A')}</div>`;
+                html += `<div style="margin-bottom: 5px;"><strong>Killer BP:</strong> ${formatField('killer_bp', config.killer_bp, (v) => v ? v.toLocaleString() : 'N/A')}</div>`;
+            }
             if (prediction) {
                 html += `<div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid var(--border-color);">`;
                 html += `<div style="font-size: 1.5em; color: ${prediction.will_escape ? '#4dff4d' : '#ff6666'}; font-weight: bold; text-align: center;">`;
@@ -3409,9 +3812,43 @@
             
             // Feature distributions with charts
             if (stats.feature_stats) {
-                html += '<h3 style="color: var(--accent-red); margin-top: 20px; margin-bottom: 10px;">Feature Distributions</h3>';
+                html += '<div style="margin-top: 30px; margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-left: 4px solid var(--accent-red); border-radius: 5px;">';
+                html += '<h2 style="color: var(--accent-red); margin: 0; font-size: 1.8em; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Feature Distributions</h2>';
+                html += '</div>';
+                
+                // Define feature order matching form order
+                const featureDisplayOrder = [
+                    'Survivor Gender',
+                    'Steam Player',
+                    'Anonymous Mode',
+                    'Prestige',
+                    'Item',
+                    'Powerful Add-ons',
+                    'Map Type',
+                    'Map Area',
+                    'Exhaustion Perk',
+                    'Chase Perks',
+                    'Decisive Strike',
+                    'Unbreakable',
+                    'Off the Record',
+                    'Adrenaline',
+                    'Survivor BP',
+                    'Killer BP'
+                ];
+                
+                // Sort features by display order
+                const sortedFeatures = Object.entries(stats.feature_stats).sort(([featureA], [featureB]) => {
+                    const indexA = featureDisplayOrder.indexOf(featureA);
+                    const indexB = featureDisplayOrder.indexOf(featureB);
+                    // If not found in order, put at end
+                    if (indexA === -1 && indexB === -1) return featureA.localeCompare(featureB);
+                    if (indexA === -1) return 1;
+                    if (indexB === -1) return -1;
+                    return indexA - indexB;
+                });
+                
                 let chartIndex = 0;
-                Object.entries(stats.feature_stats).forEach(([feature, data]) => {
+                sortedFeatures.forEach(([feature, data]) => {
                     if (data.distribution && Object.keys(data.distribution).length > 0) {
                         html += `<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">`;
                         html += `<strong style="color: var(--accent-red); font-size: 1.1em;">${feature}</strong>`;
@@ -3424,9 +3861,43 @@
             
             // Average escape rates by feature with charts
             if (stats.escape_rates) {
-                html += '<h3 style="color: var(--accent-red); margin-top: 20px; margin-bottom: 10px;">Average Escape Rates by Feature</h3>';
+                html += '<div style="margin-top: 40px; margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-left: 4px solid var(--accent-red); border-radius: 5px;">';
+                html += '<h2 style="color: var(--accent-red); margin: 0; font-size: 1.8em; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Average Escape Rates by Feature</h2>';
+                html += '</div>';
+                
+                // Define feature order matching form order (same as above)
+                const escapeRateFeatureOrder = [
+                    'Survivor Gender',
+                    'Steam Player',
+                    'Anonymous Mode',
+                    'Prestige',
+                    'Item',
+                    'Powerful Add-ons',
+                    'Map Type',
+                    'Map Area',
+                    'Exhaustion Perk',
+                    'Chase Perks',
+                    'Decisive Strike',
+                    'Unbreakable',
+                    'Off the Record',
+                    'Adrenaline',
+                    'Survivor BP',
+                    'Killer BP'
+                ];
+                
+                // Sort features by display order
+                const sortedEscapeRates = Object.entries(stats.escape_rates).sort(([featureA], [featureB]) => {
+                    const indexA = escapeRateFeatureOrder.indexOf(featureA);
+                    const indexB = escapeRateFeatureOrder.indexOf(featureB);
+                    // If not found in order, put at end
+                    if (indexA === -1 && indexB === -1) return featureA.localeCompare(featureB);
+                    if (indexA === -1) return 1;
+                    if (indexB === -1) return -1;
+                    return indexA - indexB;
+                });
+                
                 let escapeChartIndex = 0;
-                Object.entries(stats.escape_rates).forEach(([feature, rates]) => {
+                sortedEscapeRates.forEach(([feature, rates]) => {
                     if (rates && Object.keys(rates).length > 0) {
                         html += `<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">`;
                         html += `<strong style="color: var(--accent-red); font-size: 1.1em;">${feature}</strong>`;
@@ -3437,13 +3908,82 @@
                 });
             }
             
+            // Bloodpoints distribution graphs
+            if (stats.bloodpoints_stats) {
+                html += '<div style="margin-top: 40px; margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-left: 4px solid var(--accent-red); border-radius: 5px;">';
+                html += '<h2 style="color: var(--accent-red); margin: 0; font-size: 1.8em; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Match Bloodpoints Distribution</h2>';
+                html += '</div>';
+                
+                // Individual graphs
+                if (stats.bloodpoints_stats.survivor_bp) {
+                    html += '<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">';
+                    html += '<strong style="color: var(--accent-red); font-size: 1.1em;">Survivor Match Bloodpoints Distribution</strong>';
+                    const survivorStats = stats.bloodpoints_stats.survivor_bp;
+                    html += `<div style="margin-top: 10px; color: var(--text-secondary); font-size: 0.9em;">`;
+                    html += `Mean: ${survivorStats.mean.toFixed(0)} | Median: ${survivorStats.median.toFixed(0)} | Range: ${survivorStats.min.toFixed(0)} - ${survivorStats.max.toFixed(0)}`;
+                    html += `</div>`;
+                    html += `<div style="position: relative; height: 300px; margin-top: 15px;"><canvas id="chart-bp-survivor"></canvas></div>`;
+                    html += `</div>`;
+                }
+                
+                if (stats.bloodpoints_stats.killer_bp) {
+                    html += '<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">';
+                    html += '<strong style="color: var(--accent-red); font-size: 1.1em;">Killer Match Bloodpoints Distribution</strong>';
+                    const killerStats = stats.bloodpoints_stats.killer_bp;
+                    html += `<div style="margin-top: 10px; color: var(--text-secondary); font-size: 0.9em;">`;
+                    html += `Mean: ${killerStats.mean.toFixed(0)} | Median: ${killerStats.median.toFixed(0)} | Range: ${killerStats.min.toFixed(0)} - ${killerStats.max.toFixed(0)}`;
+                    html += `</div>`;
+                    html += `<div style="position: relative; height: 300px; margin-top: 15px;"><canvas id="chart-bp-killer"></canvas></div>`;
+                    html += `</div>`;
+                }
+                
+                // Comparison graph (overlayed)
+                if (stats.bloodpoints_stats.survivor_bp && stats.bloodpoints_stats.killer_bp) {
+                    html += '<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">';
+                    html += '<strong style="color: var(--accent-red); font-size: 1.1em;">Survivor vs Killer Match Bloodpoints Comparison</strong>';
+                    html += `<div style="position: relative; height: 300px; margin-top: 15px;"><canvas id="chart-bp-comparison"></canvas></div>`;
+                    html += `</div>`;
+                }
+            }
+            
             html += '</div>';
             statsContent.innerHTML = html;
             
             // Create distribution charts
             if (stats.feature_stats) {
+                // Use same feature order as above
+                const featureDisplayOrderForCharts = [
+                    'Survivor Gender',
+                    'Steam Player',
+                    'Anonymous Mode',
+                    'Prestige',
+                    'Item',
+                    'Powerful Add-ons',
+                    'Map Type',
+                    'Map Area',
+                    'Exhaustion Perk',
+                    'Chase Perks',
+                    'Decisive Strike',
+                    'Unbreakable',
+                    'Off the Record',
+                    'Adrenaline',
+                    'Survivor BP',
+                    'Killer BP'
+                ];
+                
+                // Sort features by display order
+                const sortedFeaturesForCharts = Object.entries(stats.feature_stats).sort(([featureA], [featureB]) => {
+                    const indexA = featureDisplayOrderForCharts.indexOf(featureA);
+                    const indexB = featureDisplayOrderForCharts.indexOf(featureB);
+                    // If not found in order, put at end
+                    if (indexA === -1 && indexB === -1) return featureA.localeCompare(featureB);
+                    if (indexA === -1) return 1;
+                    if (indexB === -1) return -1;
+                    return indexA - indexB;
+                });
+                
                 let chartIndex = 0;
-                Object.entries(stats.feature_stats).forEach(([feature, data]) => {
+                sortedFeaturesForCharts.forEach(([feature, data]) => {
                     if (data.distribution && Object.keys(data.distribution).length > 0) {
                         const ctx = document.getElementById(`chart-dist-${chartIndex}`);
                         if (ctx) {
@@ -3451,21 +3991,32 @@
                             const values = Object.values(data.distribution);
                             const percentages = values.map(v => ((v / data.total) * 100).toFixed(1));
                             
+                            // Set data to null for 0 values so bars aren't drawn, but keep labels for tooltips
+                            const displayValues = values.map(v => v === 0 ? null : v);
+                            
+                            // Only rotate labels for Exhaustion Perk feature
+                            const shouldRotateLabels = feature === 'Exhaustion Perk';
+                            
                             new Chart(ctx, {
                                 type: 'bar',
                                 data: {
                                     labels: labels,
                                     datasets: [{
                                         label: 'Count',
-                                        data: values,
+                                        data: displayValues,
                                         backgroundColor: 'rgba(255, 26, 26, 0.6)',
                                         borderColor: 'rgba(255, 26, 26, 1)',
-                                        borderWidth: 2
+                                        borderWidth: 2,
+                                        minBarLength: 5
                                     }]
                                 },
                                 options: {
                                     responsive: true,
                                     maintainAspectRatio: false,
+                                    interaction: {
+                                        mode: 'index',
+                                        intersect: false
+                                    },
                                     plugins: {
                                         legend: {
                                             display: false,
@@ -3477,7 +4028,13 @@
                                             callbacks: {
                                                 label: function(context) {
                                                     const index = context.dataIndex;
-                                                    return `${context.parsed.y} (${percentages[index]}%)`;
+                                                    const originalValue = values[index];
+                                                    const percentage = percentages[index];
+                                                    // Show 0 even if bar isn't displayed
+                                                    if (originalValue === 0 || context.parsed.y === null) {
+                                                        return `0 (${percentage}%)`;
+                                                    }
+                                                    return `${context.parsed.y} (${percentage}%)`;
                                                 }
                                             },
                                             titleColor: textPrimary,
@@ -3500,8 +4057,8 @@
                                         x: {
                                             ticks: {
                                                 color: textPrimary,
-                                                maxRotation: 45,
-                                                minRotation: 45
+                                                maxRotation: shouldRotateLabels ? 45 : 0,
+                                                minRotation: shouldRotateLabels ? 45 : 0
                                             },
                                             grid: {
                                                 color: gridColor
@@ -3518,8 +4075,39 @@
             
             // Create escape rate charts
             if (stats.escape_rates) {
+                // Use same feature order as above
+                const escapeRateFeatureOrderForCharts = [
+                    'Survivor Gender',
+                    'Steam Player',
+                    'Anonymous Mode',
+                    'Prestige',
+                    'Item',
+                    'Powerful Add-ons',
+                    'Map Type',
+                    'Map Area',
+                    'Exhaustion Perk',
+                    'Chase Perks',
+                    'Decisive Strike',
+                    'Unbreakable',
+                    'Off the Record',
+                    'Adrenaline',
+                    'Survivor BP',
+                    'Killer BP'
+                ];
+                
+                // Sort features by display order
+                const sortedEscapeRatesForCharts = Object.entries(stats.escape_rates).sort(([featureA], [featureB]) => {
+                    const indexA = escapeRateFeatureOrderForCharts.indexOf(featureA);
+                    const indexB = escapeRateFeatureOrderForCharts.indexOf(featureB);
+                    // If not found in order, put at end
+                    if (indexA === -1 && indexB === -1) return featureA.localeCompare(featureB);
+                    if (indexA === -1) return 1;
+                    if (indexB === -1) return -1;
+                    return indexA - indexB;
+                });
+                
                 let escapeChartIndex = 0;
-                Object.entries(stats.escape_rates).forEach(([feature, rates]) => {
+                sortedEscapeRatesForCharts.forEach(([feature, rates]) => {
                     if (rates && Object.keys(rates).length > 0) {
                         const ctx = document.getElementById(`chart-escape-${escapeChartIndex}`);
                         if (ctx) {
@@ -3530,21 +4118,55 @@
                                 ? stats.feature_stats[feature].escape_counts 
                                 : {};
                             
+                            // Set data to null for 0 escape rates so bars aren't drawn, but keep labels for tooltips
+                            const displayValues = values.map(v => v === 0 ? null : v);
+                            const displayColors = values.map((v, i) => {
+                                if (v === 0) return null;
+                                return v >= 50 ? 'rgba(77, 255, 77, 0.6)' : 'rgba(255, 102, 102, 0.6)';
+                            });
+                            const displayBorderColors = values.map((v, i) => {
+                                if (v === 0) return null;
+                                return v >= 50 ? 'rgba(77, 255, 77, 1)' : 'rgba(255, 102, 102, 1)';
+                            });
+                            
+                            // Calculate nice even percentages for y-axis
+                            const nonZeroValues = values.filter(v => v > 0);
+                            let niceMax = 100;
+                            let niceMin = 0;
+                            
+                            if (nonZeroValues.length > 0) {
+                                const maxValue = Math.max(...nonZeroValues);
+                                const minValue = Math.min(...nonZeroValues);
+                                
+                                // Round max to nearest even 10% and add 10% padding, but cap at 100%
+                                niceMax = Math.ceil((maxValue + 10) / 10) * 10;
+                                niceMax = Math.min(100, niceMax);
+                                
+                                // Round min to nearest even 10% and subtract 10% padding, but not below 0
+                                niceMin = Math.floor((minValue - 10) / 10) * 10;
+                                niceMin = Math.max(0, niceMin);
+                            }
+                            
                             new Chart(ctx, {
                                 type: 'bar',
                                 data: {
                                     labels: labels,
                                     datasets: [{
                                         label: 'Escape Rate %',
-                                        data: values,
-                                        backgroundColor: values.map(v => v >= 50 ? 'rgba(77, 255, 77, 0.6)' : 'rgba(255, 102, 102, 0.6)'),
-                                        borderColor: values.map(v => v >= 50 ? 'rgba(77, 255, 77, 1)' : 'rgba(255, 102, 102, 1)'),
-                                        borderWidth: 2
+                                        data: displayValues,
+                                        backgroundColor: displayColors,
+                                        borderColor: displayBorderColors,
+                                        borderWidth: 2,
+                                        minBarLength: 5
                                     }]
                                 },
                                 options: {
                                     responsive: true,
                                     maintainAspectRatio: false,
+                                    interaction: {
+                                        mode: 'index',
+                                        intersect: false
+                                    },
                                     plugins: {
                                         legend: {
                                             display: false,
@@ -3555,10 +4177,21 @@
                                         tooltip: {
                                             callbacks: {
                                                 label: function(context) {
-                                                    const label = labels[context.dataIndex];
+                                                    const index = context.dataIndex;
+                                                    const label = labels[index];
+                                                    const originalValue = values[index];
                                                     const escapeCount = escapeCounts[label];
+                                                    
+                                                    // Show 0% and 0 escapes even if bar isn't displayed
+                                                    if (originalValue === 0 || context.parsed.y === null) {
+                                                        const count = escapeCount !== undefined ? escapeCount : 0;
+                                                        const escapeText = count === 1 ? 'escape' : 'escapes';
+                                                        return `Escape Rate: 0.0% (${count} ${escapeText})`;
+                                                    }
+                                                    
                                                     if (escapeCount !== undefined) {
-                                                        return `Escape Rate: ${context.parsed.y.toFixed(1)}% (${escapeCount} escapes)`;
+                                                        const escapeText = escapeCount === 1 ? 'escape' : 'escapes';
+                                                        return `Escape Rate: ${context.parsed.y.toFixed(1)}% (${escapeCount} ${escapeText})`;
                                                     }
                                                     return `Escape Rate: ${context.parsed.y.toFixed(1)}%`;
                                                 }
@@ -3573,8 +4206,8 @@
                                     scales: {
                                         y: {
                                             beginAtZero: false,
-                                            min: Math.max(0, Math.min(...values) - 5),
-                                            max: Math.min(100, Math.max(...values) + 5),
+                                            min: niceMin,
+                                            max: niceMax,
                                             ticks: {
                                                 color: textPrimary,
                                                 callback: function(value) {
@@ -3600,6 +4233,335 @@
                         escapeChartIndex++;
                     }
                 });
+            }
+            
+            // Create bloodpoints distribution charts
+            if (stats.bloodpoints_stats) {
+                // Survivor BP chart
+                if (stats.bloodpoints_stats.survivor_bp) {
+                    const ctxSurvivor = document.getElementById('chart-bp-survivor');
+                    if (ctxSurvivor) {
+                        const survivorData = stats.bloodpoints_stats.survivor_bp;
+                        const binSize = survivorData.bin_size || 5000;
+                        
+                        // Sort labels numerically and create marker labels (just the bin start values)
+                        const sortedLabels = Object.keys(survivorData.distribution).sort((a, b) => parseInt(a) - parseInt(b));
+                        const markerLabels = sortedLabels.map(label => {
+                            const start = parseInt(label);
+                            return start.toLocaleString();
+                        });
+                        const values = sortedLabels.map(label => survivorData.distribution[label]);
+                        
+                        new Chart(ctxSurvivor, {
+                            type: 'line',
+                            data: {
+                                labels: markerLabels,
+                                datasets: [{
+                                    label: 'Count',
+                                    data: values,
+                                    backgroundColor: 'rgba(77, 162, 255, 0.2)',
+                                    borderColor: 'rgba(77, 162, 255, 1)',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointRadius: 3,
+                                    pointHoverRadius: 5,
+                                    pointBackgroundColor: 'rgba(77, 162, 255, 1)',
+                                    pointBorderColor: 'rgba(77, 162, 255, 1)'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: {
+                                    mode: 'index',
+                                    intersect: false
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: false,
+                                        labels: {
+                                            color: textPrimary
+                                        }
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            title: function(context) {
+                                                const binStart = parseInt(sortedLabels[context[0].dataIndex]);
+                                                const binEnd = binStart + binSize;
+                                                return `${binStart.toLocaleString()} - ${binEnd.toLocaleString()} BP`;
+                                            },
+                                            label: function(context) {
+                                                const percentage = ((context.parsed.y / survivorData.total) * 100).toFixed(1);
+                                                return `${context.parsed.y} survivors (${percentage}%)`;
+                                            }
+                                        },
+                                        titleColor: textPrimary,
+                                        bodyColor: textPrimary,
+                                        backgroundColor: bgSecondary,
+                                        borderColor: borderColor,
+                                        borderWidth: 1
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            color: textPrimary
+                                        },
+                                        grid: {
+                                            color: gridColor
+                                        }
+                                    },
+                                    x: {
+                                        ticks: {
+                                            color: textPrimary,
+                                            maxRotation: 45,
+                                            minRotation: 45
+                                        },
+                                        grid: {
+                                            color: gridColor
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                // Killer BP chart
+                if (stats.bloodpoints_stats.killer_bp) {
+                    const ctxKiller = document.getElementById('chart-bp-killer');
+                    if (ctxKiller) {
+                        const killerData = stats.bloodpoints_stats.killer_bp;
+                        const binSize = killerData.bin_size || 5000;
+                        
+                        // Sort labels numerically and create marker labels (just the bin start values)
+                        const sortedLabels = Object.keys(killerData.distribution).sort((a, b) => parseInt(a) - parseInt(b));
+                        const markerLabels = sortedLabels.map(label => {
+                            const start = parseInt(label);
+                            return start.toLocaleString();
+                        });
+                        // Divide by 4 since each game has 4 survivors with the same killer BP
+                        const values = sortedLabels.map(label => Math.round(killerData.distribution[label] / 4));
+                        
+                        new Chart(ctxKiller, {
+                            type: 'line',
+                            data: {
+                                labels: markerLabels,
+                                datasets: [{
+                                    label: 'Count',
+                                    data: values,
+                                    backgroundColor: 'rgba(255, 26, 26, 0.2)',
+                                    borderColor: 'rgba(255, 26, 26, 1)',
+                                    borderWidth: 2,
+                                    fill: true,
+                                    tension: 0.4,
+                                    pointRadius: 3,
+                                    pointHoverRadius: 5,
+                                    pointBackgroundColor: 'rgba(255, 26, 26, 1)',
+                                    pointBorderColor: 'rgba(255, 26, 26, 1)'
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: {
+                                    mode: 'index',
+                                    intersect: false
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: false,
+                                        labels: {
+                                            color: textPrimary
+                                        }
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            title: function(context) {
+                                                const binStart = parseInt(sortedLabels[context[0].dataIndex]);
+                                                const binEnd = binStart + binSize;
+                                                return `${binStart.toLocaleString()} - ${binEnd.toLocaleString()} BP`;
+                                            },
+                                            label: function(context) {
+                                                // Use adjusted total (divided by 4) for percentage calculation
+                                                const adjustedTotal = Math.round(killerData.total / 4);
+                                                const percentage = adjustedTotal > 0 ? ((context.parsed.y / adjustedTotal) * 100).toFixed(1) : 0;
+                                                return `${context.parsed.y} games (${percentage}%)`;
+                                            }
+                                        },
+                                        titleColor: textPrimary,
+                                        bodyColor: textPrimary,
+                                        backgroundColor: bgSecondary,
+                                        borderColor: borderColor,
+                                        borderWidth: 1
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            color: textPrimary
+                                        },
+                                        grid: {
+                                            color: gridColor
+                                        }
+                                    },
+                                    x: {
+                                        ticks: {
+                                            color: textPrimary,
+                                            maxRotation: 45,
+                                            minRotation: 45
+                                        },
+                                        grid: {
+                                            color: gridColor
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                // Comparison chart (overlayed)
+                if (stats.bloodpoints_stats.survivor_bp && stats.bloodpoints_stats.killer_bp) {
+                    const ctxComparison = document.getElementById('chart-bp-comparison');
+                    if (ctxComparison) {
+                        const survivorData = stats.bloodpoints_stats.survivor_bp;
+                        const killerData = stats.bloodpoints_stats.killer_bp;
+                        const binSize = survivorData.bin_size || killerData.bin_size || 5000;
+                        
+                        // Get all unique bin labels from both distributions (they're now just numbers)
+                        const allLabels = new Set([
+                            ...Object.keys(survivorData.distribution),
+                            ...Object.keys(killerData.distribution)
+                        ]);
+                        const sortedLabels = Array.from(allLabels).sort((a, b) => parseInt(a) - parseInt(b));
+                        
+                        // Create marker labels for display (just the bin start values)
+                        const markerLabels = sortedLabels.map(label => {
+                            const start = parseInt(label);
+                            return start.toLocaleString();
+                        });
+                        
+                        // Convert to percentages for comparison
+                        const survivorTotal = survivorData.total;
+                        const killerTotal = Math.round(killerData.total / 4); // Divide by 4 for actual game count
+                        
+                        const survivorValues = sortedLabels.map(label => {
+                            const count = survivorData.distribution[label] || 0;
+                            return survivorTotal > 0 ? (count / survivorTotal) * 100 : 0;
+                        });
+                        const killerValues = sortedLabels.map(label => {
+                            const count = killerData.distribution[label] || 0;
+                            const gameCount = Math.round(count / 4); // Divide by 4 for actual game count
+                            return killerTotal > 0 ? (gameCount / killerTotal) * 100 : 0;
+                        });
+                        
+                        new Chart(ctxComparison, {
+                            type: 'line',
+                            data: {
+                                labels: markerLabels,
+                                datasets: [
+                                    {
+                                        label: 'Survivor BP',
+                                        data: survivorValues,
+                                        backgroundColor: 'rgba(77, 162, 255, 0.2)',
+                                        borderColor: 'rgba(77, 162, 255, 1)',
+                                        borderWidth: 2,
+                                        fill: true,
+                                        tension: 0.4,
+                                        pointRadius: 3,
+                                        pointHoverRadius: 5,
+                                        pointBackgroundColor: 'rgba(77, 162, 255, 1)',
+                                        pointBorderColor: 'rgba(77, 162, 255, 1)'
+                                    },
+                                    {
+                                        label: 'Killer BP',
+                                        data: killerValues,
+                                        backgroundColor: 'rgba(255, 26, 26, 0.2)',
+                                        borderColor: 'rgba(255, 26, 26, 1)',
+                                        borderWidth: 2,
+                                        fill: true,
+                                        tension: 0.4,
+                                        pointRadius: 3,
+                                        pointHoverRadius: 5,
+                                        pointBackgroundColor: 'rgba(255, 26, 26, 1)',
+                                        pointBorderColor: 'rgba(255, 26, 26, 1)'
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: {
+                                    mode: 'index',
+                                    intersect: false
+                                },
+                                plugins: {
+                                    legend: {
+                                        display: true,
+                                        position: 'top',
+                                        labels: {
+                                            color: textPrimary,
+                                            usePointStyle: true,
+                                            padding: 15,
+                                            filter: function(item) {
+                                                // Only show legend for bar charts, not trend lines
+                                                return !item.text.includes('Trend');
+                                            }
+                                        }
+                                    },
+                                    tooltip: {
+                                        callbacks: {
+                                            title: function(context) {
+                                                const binStart = parseInt(sortedLabels[context[0].dataIndex]);
+                                                const binEnd = binStart + binSize;
+                                                return `${binStart.toLocaleString()} - ${binEnd.toLocaleString()} BP`;
+                                            },
+                                            label: function(context) {
+                                                const datasetLabel = context.dataset.label;
+                                                const percentage = context.parsed.y.toFixed(1);
+                                                return `${datasetLabel}: ${percentage}%`;
+                                            }
+                                        },
+                                        titleColor: textPrimary,
+                                        bodyColor: textPrimary,
+                                        backgroundColor: bgSecondary,
+                                        borderColor: borderColor,
+                                        borderWidth: 1
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        max: 35,
+                                        ticks: {
+                                            color: textPrimary,
+                                            callback: function(value) {
+                                                return value.toFixed(0) + '%';
+                                            }
+                                        },
+                                        grid: {
+                                            color: gridColor
+                                        }
+                                    },
+                                    x: {
+                                        ticks: {
+                                            color: textPrimary,
+                                            maxRotation: 45,
+                                            minRotation: 45
+                                        },
+                                        grid: {
+                                            color: gridColor
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }
             }
         }
         

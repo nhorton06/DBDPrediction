@@ -169,7 +169,11 @@ def health():
 def count_total_perks(data):
     """Count total number of perks selected (must be <= 4)"""
     exhaustion_perk = data.get('exhaustion_perk', 'None')
-    exhaustion_count = 1 if exhaustion_perk and exhaustion_perk != 'None' else 0
+    # DHBL counts as 2 perks, all other exhaustion perks count as 1
+    if exhaustion_perk and exhaustion_perk != 'None':
+        exhaustion_count = 2 if exhaustion_perk == 'DHBL' else 1
+    else:
+        exhaustion_count = 0
     chase_perks = int(data.get('chase_perks', 0) or 0)
     decisive_strike = 1 if data.get('decisive_strike', 'No') == 'Yes' else 0
     unbreakable = 1 if data.get('unbreakable', 'No') == 'Yes' else 0
@@ -576,9 +580,15 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
     # We'll try different combinations of exhaustion + chase + other perks = 4
     valid_perk_configs = []
     
-    # Try different exhaustion perks (0 or 1)
+    # Try different exhaustion perks (0, 1, or 2 for DHBL)
     for exhaustion_perk in ['Sprint Burst', 'Dead Hard', 'Lithe', 'DHBL', 'None']:
-        exhaustion_count = 1 if exhaustion_perk != 'None' else 0
+        # DHBL counts as 2 perks, all other exhaustion perks count as 1
+        if exhaustion_perk == 'None':
+            exhaustion_count = 0
+        elif exhaustion_perk == 'DHBL':
+            exhaustion_count = 2
+        else:
+            exhaustion_count = 1
         
         # Try different chase perk counts (0-3)
         for chase_count in range(4):
@@ -607,8 +617,8 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
             # Try multiple maps from each realm (prioritize larger areas for outdoor, appropriate sizes for indoor)
             # For outdoor maps, larger is usually better; for indoor, we want appropriate sizes
             sorted_maps = sorted(maps, key=lambda m: m['area'], reverse=True)
-            # Try top 3 maps from each realm to get variety in areas
-            maps_to_try = sorted_maps[:3] if len(sorted_maps) >= 3 else sorted_maps
+            # Try top 5 maps from each realm to balance thoroughness with performance
+            maps_to_try = sorted_maps[:5] if len(sorted_maps) >= 5 else sorted_maps
             
             for representative_map in maps_to_try:
                 map_type = representative_map['type']
@@ -630,8 +640,9 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
                                         key=lambda p: (p['exhaustion_perk'] in ['Sprint Burst', 'Dead Hard', 'Lithe'], 
                                                       p['chase_perks']), 
                                         reverse=True)
-                                    # Try top 100 perk configs instead of just 50
-                                    for perk_config in sorted_perk_configs[:100]:
+                                    # Try top 200 perk configs to balance thoroughness with performance
+                                    # This is more than before (100) but not all to avoid hanging
+                                    for perk_config in sorted_perk_configs[:200]:
                                         test_config = current_data.copy()
                                         test_config['item'] = item
                                         test_config['map_type'] = map_type
@@ -665,8 +676,9 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
                                                         best_config = test_config.copy()
                                                         best_realm = realm_name
                                                     
-                                                    # Early exit if we find very high score
-                                                    if best_score > 0.90:
+                                                    # Early exit if we find a very high score (95%+)
+                                                    # This balances thoroughness with performance
+                                                    if best_score >= 0.95:
                                                         best_config['realm'] = realm_name
                                                         return best_config
                                         else:
@@ -676,8 +688,9 @@ def optimize_escape_chance(model, scaler, model_info, current_data, items, exhau
                                                 best_config = test_config.copy()
                                                 best_realm = realm_name
                                             
-                                            # Early exit if we find very high score
-                                            if best_score > 0.90:
+                                            # Early exit if we find a very high score (95%+)
+                                            # This balances thoroughness with performance
+                                            if best_score >= 0.95:
                                                 best_config['realm'] = realm_name
                                                 return best_config
     
@@ -790,7 +803,13 @@ def top_builds():
         # Generate valid perk combinations
         valid_perk_configs = []
         for exhaustion_perk in exhaustion_perks:
-            exhaustion_count = 1 if exhaustion_perk != 'None' else 0
+            # DHBL counts as 2 perks, all other exhaustion perks count as 1
+            if exhaustion_perk == 'None':
+                exhaustion_count = 0
+            elif exhaustion_perk == 'DHBL':
+                exhaustion_count = 2
+            else:
+                exhaustion_count = 1
             for chase_count in range(4):
                 remaining_slots = 4 - exhaustion_count - chase_count
                 if remaining_slots < 0:
@@ -1014,12 +1033,77 @@ def statistics():
         total_games_count = len(dataset)
         total_escapes_count = len(dataset[dataset['Result'] == 'Escape'])
         
+        # Calculate bloodpoints distributions
+        bloodpoints_stats = {}
+        bin_size = 5000  # Use 5000 BP increments for clean bins
+        
+        if 'Survivor BP' in dataset.columns:
+            survivor_bp = pd.to_numeric(dataset['Survivor BP'], errors='coerce').dropna()
+            if len(survivor_bp) > 0:
+                min_bp = survivor_bp.min()
+                max_bp = survivor_bp.max()
+                
+                # Round down min and round up max to nearest bin_size
+                bin_min = int(np.floor(min_bp / bin_size) * bin_size)
+                bin_max = int(np.ceil(max_bp / bin_size) * bin_size)
+                
+                # Create bins every bin_size
+                bin_edges = np.arange(bin_min, bin_max + bin_size, bin_size)
+                hist, _ = np.histogram(survivor_bp, bins=bin_edges)
+                
+                # Create labels as just the bin start value (e.g., "0", "5000", "10000")
+                bin_labels = [str(int(bin_edges[i])) for i in range(len(hist))]
+                
+                # Create distribution dict with sorted labels
+                distribution = {label: int(count) for label, count in zip(bin_labels, hist)}
+                
+                bloodpoints_stats['survivor_bp'] = {
+                    'distribution': distribution,
+                    'min': float(min_bp),
+                    'max': float(max_bp),
+                    'mean': float(survivor_bp.mean()),
+                    'median': float(survivor_bp.median()),
+                    'total': len(survivor_bp),
+                    'bin_size': bin_size
+                }
+        
+        if 'Killer BP' in dataset.columns:
+            killer_bp = pd.to_numeric(dataset['Killer BP'], errors='coerce').dropna()
+            if len(killer_bp) > 0:
+                min_bp = killer_bp.min()
+                max_bp = killer_bp.max()
+                
+                # Round down min and round up max to nearest bin_size
+                bin_min = int(np.floor(min_bp / bin_size) * bin_size)
+                bin_max = int(np.ceil(max_bp / bin_size) * bin_size)
+                
+                # Create bins every bin_size
+                bin_edges = np.arange(bin_min, bin_max + bin_size, bin_size)
+                hist, _ = np.histogram(killer_bp, bins=bin_edges)
+                
+                # Create labels as just the bin start value (e.g., "0", "5000", "10000")
+                bin_labels = [str(int(bin_edges[i])) for i in range(len(hist))]
+                
+                # Create distribution dict with sorted labels
+                distribution = {label: int(count) for label, count in zip(bin_labels, hist)}
+                
+                bloodpoints_stats['killer_bp'] = {
+                    'distribution': distribution,
+                    'min': float(min_bp),
+                    'max': float(max_bp),
+                    'mean': float(killer_bp.mean()),
+                    'median': float(killer_bp.median()),
+                    'total': len(killer_bp),
+                    'bin_size': bin_size
+                }
+        
         return jsonify({
             'feature_stats': feature_stats,
             'escape_rates': escape_rates,
             'total_games': total_games_count,  # This is actually total survivors (rows)
             'total_escapes': total_escapes_count,
-            'overall_escape_rate': (total_escapes_count / total_games_count) * 100 if total_games_count > 0 else 0
+            'overall_escape_rate': (total_escapes_count / total_games_count) * 100 if total_games_count > 0 else 0,
+            'bloodpoints_stats': bloodpoints_stats
         })
     
     except Exception as e:
