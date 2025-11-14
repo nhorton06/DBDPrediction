@@ -3987,8 +3987,47 @@
                     if (data.distribution && Object.keys(data.distribution).length > 0) {
                         const ctx = document.getElementById(`chart-dist-${chartIndex}`);
                         if (ctx) {
-                            const labels = Object.keys(data.distribution);
-                            const values = Object.values(data.distribution);
+                            let labels = Object.keys(data.distribution);
+                            let values = Object.values(data.distribution);
+                            
+                            // Sort prestige labels numerically (individual values like "0", "1", "2", etc.)
+                            let prestigeMultiplesOf5 = null;
+                            if (feature === 'Prestige') {
+                                const labelValuePairs = labels.map((label, i) => [label, values[i]]);
+                                labelValuePairs.sort((a, b) => {
+                                    return parseInt(a[0]) - parseInt(b[0]);
+                                });
+                                
+                                // Create a map of existing values
+                                const existingData = new Map();
+                                labelValuePairs.forEach(([label, value]) => {
+                                    existingData.set(parseInt(label), value);
+                                });
+                                
+                                // Get the range
+                                const minPrestige = parseInt(labelValuePairs[0][0]);
+                                const maxPrestige = parseInt(labelValuePairs[labelValuePairs.length - 1][0]);
+                                
+                                // Create complete labels and values arrays with all values from min to max
+                                const completeLabels = [];
+                                const completeValues = [];
+                                for (let i = minPrestige; i <= maxPrestige; i++) {
+                                    completeLabels.push(i.toString());
+                                    completeValues.push(existingData.get(i) || 0);
+                                }
+                                
+                                labels = completeLabels;
+                                values = completeValues;
+                                
+                                // Calculate all multiples of 5 in the range (0 to 100)
+                                prestigeMultiplesOf5 = new Set();
+                                for (let i = 0; i <= 100; i += 5) {
+                                    if (i >= minPrestige && i <= maxPrestige) {
+                                        prestigeMultiplesOf5.add(i);
+                                    }
+                                }
+                            }
+                            
                             const percentages = values.map(v => ((v / data.total) * 100).toFixed(1));
                             
                             // Set data to null for 0 values so bars aren't drawn, but keep labels for tooltips
@@ -4058,7 +4097,18 @@
                                             ticks: {
                                                 color: textPrimary,
                                                 maxRotation: shouldRotateLabels ? 45 : 0,
-                                                minRotation: shouldRotateLabels ? 45 : 0
+                                                minRotation: shouldRotateLabels ? 45 : 0,
+                                                // For prestige, disable auto-skip and show all multiples of 5
+                                                ...(feature === 'Prestige' ? {
+                                                    autoSkip: false,
+                                                    maxTicksLimit: 1000,
+                                                    callback: function(value, index) {
+                                                        if (index >= labels.length) return '';
+                                                        const labelValue = parseInt(labels[index]);
+                                                        // Show label if it's a multiple of 5 in the range
+                                                        return prestigeMultiplesOf5 && prestigeMultiplesOf5.has(labelValue) ? labelValue : '';
+                                                    }
+                                                } : {})
                                             },
                                             grid: {
                                                 color: gridColor
@@ -4111,22 +4161,70 @@
                     if (rates && Object.keys(rates).length > 0) {
                         const ctx = document.getElementById(`chart-escape-${escapeChartIndex}`);
                         if (ctx) {
-                            const labels = Object.keys(rates);
-                            const values = Object.values(rates);
+                            let labels = Object.keys(rates);
+                            let values = Object.values(rates);
+                            
+                            // Sort prestige labels numerically (individual values like "0", "1", "2", etc.)
+                            let prestigeMultiplesOf5Escape = null;
+                            if (feature === 'Prestige') {
+                                const labelValuePairs = labels.map((label, i) => [label, values[i]]);
+                                labelValuePairs.sort((a, b) => {
+                                    return parseInt(a[0]) - parseInt(b[0]);
+                                });
+                                
+                                // Create a map of existing values
+                                const existingData = new Map();
+                                labelValuePairs.forEach(([label, value]) => {
+                                    existingData.set(parseInt(label), value);
+                                });
+                                
+                                // Get the range
+                                const minPrestige = parseInt(labelValuePairs[0][0]);
+                                const maxPrestige = parseInt(labelValuePairs[labelValuePairs.length - 1][0]);
+                                
+                                // Create complete labels and values arrays with all values from min to max
+                                const completeLabels = [];
+                                const completeValues = [];
+                                for (let i = minPrestige; i <= maxPrestige; i++) {
+                                    completeLabels.push(i.toString());
+                                    completeValues.push(existingData.get(i) || 0);
+                                }
+                                
+                                labels = completeLabels;
+                                values = completeValues;
+                                
+                                // Calculate all multiples of 5 in the range (0 to 100)
+                                prestigeMultiplesOf5Escape = new Set();
+                                for (let i = 0; i <= 100; i += 5) {
+                                    if (i >= minPrestige && i <= maxPrestige) {
+                                        prestigeMultiplesOf5Escape.add(i);
+                                    }
+                                }
+                            }
+                            
                             // Get escape counts for this feature if available
-                            const escapeCounts = stats.feature_stats && stats.feature_stats[feature] && stats.feature_stats[feature].escape_counts 
+                            let escapeCounts = stats.feature_stats && stats.feature_stats[feature] && stats.feature_stats[feature].escape_counts 
                                 ? stats.feature_stats[feature].escape_counts 
                                 : {};
+                            
+                            // For prestige, ensure escape counts exist for all labels (fill with 0 if missing)
+                            if (feature === 'Prestige') {
+                                const completeEscapeCounts = {};
+                                labels.forEach(label => {
+                                    completeEscapeCounts[label] = escapeCounts[label] || 0;
+                                });
+                                escapeCounts = completeEscapeCounts;
+                            }
                             
                             // Set data to null for 0 escape rates so bars aren't drawn, but keep labels for tooltips
                             const displayValues = values.map(v => v === 0 ? null : v);
                             const displayColors = values.map((v, i) => {
                                 if (v === 0) return null;
-                                return v >= 50 ? 'rgba(77, 255, 77, 0.6)' : 'rgba(255, 102, 102, 0.6)';
+                                return 'rgba(255, 26, 26, 0.6)';
                             });
                             const displayBorderColors = values.map((v, i) => {
                                 if (v === 0) return null;
-                                return v >= 50 ? 'rgba(77, 255, 77, 1)' : 'rgba(255, 102, 102, 1)';
+                                return 'rgba(255, 26, 26, 1)';
                             });
                             
                             // Calculate nice even percentages for y-axis
@@ -4220,7 +4318,20 @@
                                         },
                                         x: {
                                             ticks: {
-                                                color: textPrimary
+                                                color: textPrimary,
+                                                // For prestige, disable auto-skip, show all multiples of 5, and don't rotate labels
+                                                ...(feature === 'Prestige' ? {
+                                                    autoSkip: false,
+                                                    maxTicksLimit: 1000,
+                                                    maxRotation: 0,
+                                                    minRotation: 0,
+                                                    callback: function(value, index) {
+                                                        if (index >= labels.length) return '';
+                                                        const labelValue = parseInt(labels[index]);
+                                                        // Show label if it's a multiple of 5 in the range
+                                                        return prestigeMultiplesOf5Escape && prestigeMultiplesOf5Escape.has(labelValue) ? labelValue : '';
+                                                    }
+                                                } : {})
                                             },
                                             grid: {
                                                 color: gridColor

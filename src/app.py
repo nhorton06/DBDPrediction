@@ -1030,6 +1030,34 @@ def statistics():
                 # Store escape counts separately for tooltip display
                 feature_stats[feature]['escape_counts'] = escape_counts_by_value
         
+        # Add Prestige as individual value distribution (numeric feature)
+        if 'Prestige' in dataset.columns:
+            prestige = pd.to_numeric(dataset['Prestige'], errors='coerce').dropna()
+            if len(prestige) > 0:
+                # Count occurrences of each prestige value
+                value_counts = prestige.value_counts().sort_index()
+                
+                # Create distribution dict with individual values
+                distribution = {str(int(k)): int(v) for k, v in value_counts.items()}
+                
+                feature_stats['Prestige'] = {
+                    'distribution': distribution,
+                    'total': len(prestige)
+                }
+                
+                # Calculate escape rates by individual prestige value
+                escape_by_value = {}
+                escape_counts_by_value = {}
+                for prestige_val in value_counts.index:
+                    subset = dataset[pd.to_numeric(dataset['Prestige'], errors='coerce') == prestige_val]
+                    if len(subset) > 0:
+                        escape_count = len(subset[subset['Result'] == 'Escape'])
+                        escape_rate = (escape_count / len(subset)) * 100
+                        escape_by_value[str(int(prestige_val))] = escape_rate
+                        escape_counts_by_value[str(int(prestige_val))] = escape_count
+                escape_rates['Prestige'] = escape_by_value
+                feature_stats['Prestige']['escape_counts'] = escape_counts_by_value
+        
         total_games_count = len(dataset)
         total_escapes_count = len(dataset[dataset['Result'] == 'Escape'])
         
