@@ -145,6 +145,11 @@ def index():
     """Render the main form page"""
     return render_template('index.html')
 
+@app.route('/dashboard')
+def dashboard():
+    """Render the dashboard page"""
+    return render_template('dashboard.html')
+
 @app.route('/health')
 def health():
     """Health check endpoint for Docker and monitoring"""

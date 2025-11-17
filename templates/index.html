@@ -22,6 +22,13 @@
             --container-bg: linear-gradient(145deg, #1a1a1a 0%, #0d0d0d 100%);
             --scrollbar-track: #0d0d0d;
             --scrollbar-thumb: linear-gradient(135deg, #8b0000 0%, #600000 100%);
+            /* Success/Failure colors (green/red by default) */
+            --color-success: #4dff4d;
+            --color-success-light: #66ff66;
+            --color-failure: #ff6666;
+            --color-failure-light: #ff8888;
+            /* Optimize button colors */
+            --optimize-btn-gradient: linear-gradient(135deg, #1a4d1a 0%, #0d260d 100%);
         }
         
         [data-theme="light"] {
@@ -37,6 +44,35 @@
             --container-bg: linear-gradient(145deg, #ffffff 0%, #f5f5f5 100%);
             --scrollbar-track: #e8e8e8;
             --scrollbar-thumb: linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%);
+            /* Success/Failure colors (green/red) */
+            --color-success: #4dff4d;
+            --color-success-light: #66ff66;
+            --color-failure: #ff6666;
+            --color-failure-light: #ff8888;
+            /* Optimize button colors */
+            --optimize-btn-gradient: linear-gradient(135deg, #1a4d1a 0%, #0d260d 100%);
+        }
+        
+        [data-theme="colorblind"] {
+            /* Colorblind/High Contrast theme - uses blue/orange instead of green/red */
+            --bg-primary: #0a0a0a;
+            --bg-secondary: #1a1a1a;
+            --bg-tertiary: #0d0d0d;
+            --text-primary: #e0e0e0;
+            --text-secondary: #aaa;
+            --border-color: #663300;
+            --accent-red: #ff9933;
+            --accent-red-dark: #cc7700;
+            --container-bg: linear-gradient(145deg, #1a1a1a 0%, #0d0d0d 100%);
+            --scrollbar-track: #0d0d0d;
+            --scrollbar-thumb: linear-gradient(135deg, #cc7700 0%, #994400 100%);
+            /* Success/Failure colors (blue/orange for colorblind accessibility) */
+            --color-success: #4da6ff;
+            --color-success-light: #66b3ff;
+            --color-failure: #ff9933;
+            --color-failure-light: #ffaa55;
+            /* Optimize button colors - dark blue version */
+            --optimize-btn-gradient: linear-gradient(135deg, #1a2d4d 0%, #0d1a26 100%);
         }
         
         * {
@@ -61,22 +97,22 @@
             background: var(--scrollbar-thumb);
             border: 1px solid var(--accent-red);
             border-radius: 6px;
-            box-shadow: 0 0 5px rgba(139, 0, 0, 0.5);
+            box-shadow: 0 0 5px var(--accent-red-dark);
         }
         
         ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, #a00000 0%, #800000 100%);
-            box-shadow: 0 0 8px rgba(255, 68, 68, 0.6);
+            background: var(--scrollbar-thumb);
+            box-shadow: 0 0 8px var(--accent-red);
         }
         
         ::-webkit-scrollbar-corner {
-            background: #0d0d0d;
+            background: var(--bg-tertiary);
         }
         
         /* Firefox scrollbar styling */
         * {
             scrollbar-width: thin;
-            scrollbar-color: #8b0000 #0d0d0d;
+            scrollbar-color: var(--accent-red-dark) var(--scrollbar-track);
         }
         
         body {
@@ -142,10 +178,10 @@
             font-family: 'Orbitron', sans-serif;
             font-size: 3em;
             font-weight: 900;
-            color: #ff1a1a;
+            color: var(--accent-red);
             text-shadow: 
-                0 0 5px rgba(255, 26, 26, 0.8),
-                0 0 10px rgba(255, 0, 0, 0.5);
+                0 0 5px var(--accent-red),
+                0 0 10px var(--accent-red-dark);
             letter-spacing: 5px;
             margin-bottom: 10px;
         }
@@ -179,25 +215,38 @@
             z-index: 1000;
             background: var(--bg-secondary);
             border: 2px solid var(--border-color);
-            border-radius: 25px;
-            padding: 8px 15px;
+            border-radius: 10px;
+            padding: 5px;
+            display: flex;
+            gap: 3px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        .theme-btn {
+            padding: 10px 12px;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
             cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 8px;
-            font-size: 0.9em;
-            color: var(--text-primary);
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            justify-content: center;
         }
         
-        .theme-toggle:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        .theme-btn:hover {
+            background: var(--bg-tertiary);
         }
         
-        .theme-toggle-icon {
-            font-size: 1.2em;
+        .theme-btn.active {
+            background: var(--accent-red);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(255, 26, 26, 0.4);
+        }
+        
+        .theme-btn-icon {
+            font-size: 1.3em;
         }
         
         .container::before {
@@ -226,8 +275,8 @@
             font-size: 2.2em;
             font-weight: 900;
             text-shadow: 
-                0 0 10px rgba(255, 0, 0, 0.8),
-                0 0 20px rgba(139, 0, 0, 0.6),
+                0 0 10px var(--accent-red),
+                0 0 20px var(--accent-red-dark),
                 2px 2px 4px rgba(0, 0, 0, 0.8);
             letter-spacing: 3px;
         }
@@ -253,12 +302,12 @@
             gap: 8px;
             margin-bottom: 8px;
             min-height: 48px;
-            color: #ff4444;
+            color: var(--accent-red);
             font-weight: 700;
             font-size: 1.05em;
             text-transform: uppercase;
             letter-spacing: 1px;
-            text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+            text-shadow: 0 0 5px var(--accent-red);
         }
         
         label .icon {
@@ -373,7 +422,7 @@
             left: 50%;
             transform: translateX(-50%);
             border: 6px solid transparent;
-            border-top-color: #8b0000;
+            border-top-color: var(--accent-red-dark);
         }
         
         .info-icon:hover .tooltip,
@@ -384,24 +433,24 @@
         }
         
         .info-icon .tooltip a {
-            color: #ff4444;
+            color: var(--accent-red);
             text-decoration: underline;
             word-break: break-all;
         }
         
         .info-icon .tooltip a:hover {
-            color: #ff6666;
+            color: var(--color-failure);
         }
         
         select, input[type="number"] {
             width: 100%;
             padding: 12px 15px;
-            border: 2px solid #3a0000;
+            border: 2px solid var(--border-color);
             border-radius: 5px;
             font-size: 1em;
             transition: all 0.3s;
-            background: #1a1a1a;
-            color: #e0e0e0;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
             font-family: 'Roboto', sans-serif;
             box-sizing: border-box;
             min-height: 48px;
@@ -409,16 +458,16 @@
         
         select:focus, input[type="number"]:focus {
             outline: none;
-            border-color: #8b0000;
+            border-color: var(--accent-red);
             box-shadow: 
-                0 0 10px rgba(139, 0, 0, 0.5),
-                inset 0 0 10px rgba(139, 0, 0, 0.1);
-            background: #252525;
+                0 0 10px var(--accent-red),
+                inset 0 0 10px var(--accent-red-dark);
+            background: var(--bg-tertiary);
         }
         
         select option {
-            background: #1a1a1a;
-            color: #e0e0e0;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
             padding: 10px;
         }
         
@@ -431,12 +480,12 @@
         .autocomplete-wrapper input[type="text"] {
             width: 100%;
             padding: 12px 15px;
-            border: 2px solid #3a0000;
+            border: 2px solid var(--border-color);
             border-radius: 5px;
             font-size: 1em;
             transition: all 0.3s;
-            background: #1a1a1a;
-            color: #e0e0e0;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
             font-family: 'Roboto', sans-serif;
             box-sizing: border-box;
             min-height: 48px;
@@ -444,11 +493,11 @@
         
         .autocomplete-wrapper input[type="text"]:focus {
             outline: none;
-            border-color: #8b0000;
+            border-color: var(--accent-red);
             box-shadow: 
-                0 0 10px rgba(139, 0, 0, 0.5),
-                inset 0 0 10px rgba(139, 0, 0, 0.1);
-            background: #252525;
+                0 0 10px var(--accent-red),
+                inset 0 0 10px var(--accent-red-dark);
+            background: var(--bg-tertiary);
         }
         
         .autocomplete-dropdown {
@@ -456,8 +505,8 @@
             top: 100%;
             left: 0;
             right: 0;
-            background: #1a1a1a;
-            border: 2px solid #8b0000;
+            background: var(--bg-secondary);
+            border: 2px solid var(--accent-red-dark);
             border-top: none;
             border-radius: 0 0 5px 5px;
             max-height: 300px;
@@ -467,6 +516,24 @@
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
         }
         
+        /* Scrollbar styling for autocomplete dropdown */
+        .autocomplete-dropdown::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .autocomplete-dropdown::-webkit-scrollbar-track {
+            background: var(--scrollbar-track);
+        }
+        
+        .autocomplete-dropdown::-webkit-scrollbar-thumb {
+            background: var(--accent-red-dark);
+            border-radius: 4px;
+        }
+        
+        .autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-red);
+        }
+        
         .autocomplete-dropdown.show {
             display: block;
         }
@@ -474,8 +541,8 @@
         .autocomplete-item {
             padding: 6px 15px;
             cursor: pointer;
-            color: #e0e0e0;
-            border-bottom: 1px solid rgba(139, 0, 0, 0.3);
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--accent-red-dark);
             transition: background 0.2s;
             display: flex;
             align-items: center;
@@ -487,8 +554,8 @@
         
         .autocomplete-item:hover,
         .autocomplete-item.highlighted {
-            background: #2a0000;
-            color: #ff4444;
+            background: var(--bg-tertiary);
+            color: var(--accent-red);
         }
         
         .autocomplete-item.no-results {
@@ -515,7 +582,7 @@
             margin-bottom: 30px;
             padding: 20px;
             background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(139, 0, 0, 0.5);
+            border: 1px solid var(--accent-red-dark);
             border-radius: 5px;
         }
         
@@ -573,15 +640,15 @@
         
         .form-section-title {
             font-family: 'Orbitron', sans-serif;
-            color: #ff1a1a;
+            color: var(--accent-red);
             font-size: 1.3em;
             font-weight: 700;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid rgba(139, 0, 0, 0.6);
+            border-bottom: 2px solid var(--accent-red-dark);
             text-transform: uppercase;
             letter-spacing: 2px;
-            text-shadow: 0 0 10px rgba(255, 26, 26, 0.6);
+            text-shadow: 0 0 10px var(--accent-red);
         }
         
         .form-section-title .info-icon {
@@ -620,9 +687,9 @@
         .submit-btn {
             width: 100%;
             padding: 18px;
-            background: linear-gradient(135deg, #8b0000 0%, #600000 100%);
+            background: linear-gradient(135deg, var(--accent-red-dark) 0%, var(--accent-red) 100%);
             color: #fff;
-            border: 2px solid #ff1a1a;
+            border: 2px solid var(--accent-red);
             border-radius: 5px;
             font-size: 1.3em;
             font-weight: 700;
@@ -634,7 +701,7 @@
             margin-top: 10px;
             text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
             box-shadow: 
-                0 0 20px rgba(139, 0, 0, 0.6),
+                0 0 20px var(--accent-red-dark),
                 inset 0 -3px 0 rgba(0, 0, 0, 0.5);
             position: relative;
             overflow: hidden;
@@ -656,10 +723,10 @@
         .submit-btn:hover {
             transform: translateY(-2px);
             box-shadow: 
-                0 0 30px rgba(255, 26, 26, 0.8),
+                0 0 30px var(--accent-red),
                 0 5px 15px rgba(0, 0, 0, 0.5),
                 inset 0 -3px 0 rgba(0, 0, 0, 0.5);
-            border-color: #ff4444;
+            border-color: var(--accent-red);
         }
         
         .submit-btn:hover::before {
@@ -670,7 +737,7 @@
         .submit-btn:active {
             transform: translateY(0);
             box-shadow: 
-                0 0 15px rgba(139, 0, 0, 0.6),
+                0 0 15px var(--accent-red-dark),
                 inset 0 2px 5px rgba(0, 0, 0, 0.5);
         }
         
@@ -707,22 +774,40 @@
         }
         
         @keyframes pulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(139, 0, 0, 0.5); }
-            50% { box-shadow: 0 0 40px rgba(255, 26, 26, 0.8); }
+            0%, 100% { box-shadow: 0 0 20px var(--accent-red-dark); }
+            50% { box-shadow: 0 0 40px var(--accent-red); }
         }
         
         .result-success {
-            background: linear-gradient(135deg, #1a4d1a 0%, #0d260d 100%);
-            border-color: #4dff4d;
-            color: #90ee90;
-            box-shadow: 0 0 30px rgba(77, 255, 77, 0.5);
+            border-color: var(--color-success);
+            color: var(--color-success-light);
+            box-shadow: 0 0 30px var(--color-success);
+        }
+        
+        /* Use CSS custom properties for result-success background */
+        [data-theme="colorblind"] .result-success {
+            background: linear-gradient(135deg, rgba(26, 45, 77, 0.8) 0%, rgba(13, 26, 38, 0.8) 100%);
+        }
+        
+        [data-theme="dark"] .result-success,
+        [data-theme="light"] .result-success {
+            background: linear-gradient(135deg, rgba(26, 77, 26, 0.8) 0%, rgba(13, 38, 13, 0.8) 100%);
         }
         
         .result-failure {
-            background: linear-gradient(135deg, #4d1a1a 0%, #260d0d 100%);
-            border-color: #ff1a1a;
-            color: #ff6666;
-            box-shadow: 0 0 30px rgba(255, 26, 26, 0.5);
+            border-color: var(--color-failure);
+            color: var(--color-failure-light);
+            box-shadow: 0 0 30px var(--color-failure);
+        }
+        
+        /* Use CSS custom properties for result-failure background */
+        [data-theme="colorblind"] .result-failure {
+            background: linear-gradient(135deg, rgba(77, 51, 26, 0.8) 0%, rgba(38, 26, 13, 0.8) 100%);
+        }
+        
+        [data-theme="dark"] .result-failure,
+        [data-theme="light"] .result-failure {
+            background: linear-gradient(135deg, rgba(77, 26, 26, 0.8) 0%, rgba(38, 13, 13, 0.8) 100%);
         }
         
         .result-image {
@@ -731,11 +816,11 @@
             margin: 0 auto 20px;
             display: block;
             object-fit: contain;
-            filter: drop-shadow(0 0 15px rgba(255, 26, 26, 0.8));
+            filter: drop-shadow(0 0 15px var(--color-failure));
         }
         
         .result-success .result-image {
-            filter: drop-shadow(0 0 15px rgba(77, 255, 77, 0.8));
+            filter: drop-shadow(0 0 15px var(--color-success));
         }
         
         .result-title {
@@ -794,7 +879,7 @@
         
         .error {
             background: linear-gradient(135deg, #4d1a1a 0%, #260d0d 100%);
-            color: #ff6666;
+            color: var(--color-failure);
             padding: 20px;
             border-radius: 10px;
             margin-top: 20px;
@@ -816,7 +901,7 @@
             height: 30px;
             background: rgba(0, 0, 0, 0.3);
             border-radius: 8px;
-            border: 1px solid rgba(139, 0, 0, 0.5);
+            border: 1px solid var(--accent-red-dark);
             line-height: 1;
         }
         
@@ -831,7 +916,7 @@
         
         .model-toggle-label {
             font-family: 'Orbitron', sans-serif;
-            color: #ff4444;
+            color: var(--accent-red);
             font-weight: 700;
             font-size: 0.9em;
             text-transform: uppercase;
@@ -860,7 +945,7 @@
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #3a0000;
+            background-color: var(--border-color);
             transition: 0.3s;
             border-radius: 20px;
             border: none;
@@ -875,26 +960,26 @@
             width: 18px;
             left: 1px;
             top: 1px;
-            background-color: #ff1a1a;
+            background-color: var(--accent-red);
             transition: 0.3s;
             border-radius: 50%;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
         }
         
         input:checked + .toggle-slider {
-            background-color: #8b0000;
+            background-color: var(--accent-red-dark);
             box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
         }
         
         input:checked + .toggle-slider:before {
             transform: translateX(25px);
-            background-color: #ff1a1a;
+            background-color: var(--accent-red);
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
         }
         
         .toggle-option {
             font-family: 'Roboto', sans-serif;
-            color: #e0e0e0;
+            color: var(--text-primary);
             font-size: 0.9em;
             font-weight: 600;
             line-height: 1;
@@ -907,16 +992,23 @@
         }
         
         .toggle-option.active {
-            color: #ff4444;
-            text-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+            color: var(--accent-red);
+            text-shadow: 0 0 5px var(--accent-red);
         }
     </style>
 </head>
 <body>
-    <button class="theme-toggle" id="themeToggle" title="Toggle light/dark theme">
-        <span class="theme-toggle-icon">🌙</span>
-        <span id="themeLabel">Dark</span>
-    </button>
+    <div class="theme-toggle" id="themeToggle" title="Select theme">
+        <button class="theme-btn" data-theme="dark" id="themeBtnDark" title="Dark">
+            <span class="theme-btn-icon">🌙</span>
+        </button>
+        <button class="theme-btn" data-theme="light" id="themeBtnLight" title="Light">
+            <span class="theme-btn-icon">☀️</span>
+        </button>
+        <button class="theme-btn" data-theme="colorblind" id="themeBtnColorblind" title="Colorblind">
+            <span class="theme-btn-icon">👁️</span>
+        </button>
+    </div>
     
     <div class="container">
         <div class="logo-container">
@@ -946,6 +1038,32 @@
                 <span class="toggle-slider"></span>
             </label>
             <span class="toggle-option" id="option-with-bp">With Match Bloodpoints</span>
+        </div>
+        
+        <!-- Summary Dashboard Section -->
+        <div id="summaryDashboard" style="background: var(--container-bg); border: 2px solid var(--border-color); border-radius: 10px; padding: 25px; margin-bottom: 30px; box-shadow: 0 0 20px rgba(139, 0, 0, 0.3);">
+            <h2 style="font-family: 'Orbitron', sans-serif; color: var(--accent-red); font-size: 1.5em; margin: 0 0 20px 0; text-transform: uppercase; text-align: center;">📊 Quick Stats</h2>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;" id="summaryStats">
+                <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px; text-align: center; border: 1px solid var(--border-color);">
+                    <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;">Total Survivors</div>
+                    <div style="font-size: 2em; font-weight: 900; color: var(--accent-red);" id="summaryTotalSurvivors">-</div>
+                </div>
+                <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px; text-align: center; border: 1px solid var(--border-color);">
+                    <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;">Total Escapes</div>
+                    <div style="font-size: 2em; font-weight: 900; color: var(--color-success);" id="summaryTotalEscapes">-</div>
+                </div>
+                <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px; text-align: center; border: 1px solid var(--border-color);">
+                    <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;">Escape Rate</div>
+                    <div style="font-size: 2em; font-weight: 900; color: var(--accent-red);" id="summaryEscapeRate">-</div>
+                </div>
+                <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px; text-align: center; border: 1px solid var(--border-color);">
+                    <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;">Total Games</div>
+                    <div style="font-size: 2em; font-weight: 900; color: var(--accent-red);" id="summaryTotalGames">-</div>
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <a href="/dashboard" class="submit-btn" style="text-decoration: none; display: inline-block; padding: 12px 30px; font-size: 1em; width: 100%;">View Full Statistics Dashboard →</a>
+            </div>
         </div>
         
         <form id="predictionForm">
@@ -1262,7 +1380,7 @@
         </div>
         
         <!-- Optimization Section -->
-        <button type="button" class="submit-btn" id="optimizeBtn" style="margin-top: 20px; background: linear-gradient(135deg, #1a4d1a 0%, #0d260d 100%);">
+        <button type="button" class="submit-btn" id="optimizeBtn" style="margin-top: 20px; background: var(--optimize-btn-gradient);">
             OPTIMIZE FOR MAX ESCAPE CHANCE
         </button>
         <div class="result-container" id="optimizeResult" style="display: none; background: linear-gradient(135deg, #3a1a3a 0%, #1a0d1a 100%); border-color: #ff44ff;">
@@ -1280,9 +1398,10 @@
         
         <!-- Tab Navigation -->
         <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center; flex-wrap: wrap;">
+            <a href="/dashboard" class="tab-btn" style="text-decoration: none;">📊 Dashboard</a>
             <button type="button" class="tab-btn" data-tab="whatif">What-If</button>
             <button type="button" class="tab-btn" data-tab="compare">Compare</button>
-            <button type="button" class="tab-btn" data-tab="stats">Statistics</button>
+            <button type="button" class="tab-btn" data-tab="history">History</button>
         </div>
         
         <!-- What-If Scenarios Tab -->
@@ -1353,34 +1472,78 @@
             </div>
         </div>
         
+        <!-- History Tab -->
+        <div id="historyTab" class="tab-content" style="display: none; margin-top: 20px;">
+            <div class="form-section">
+                <h2 class="form-section-title">Prediction History</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9em;">
+                    View all predictions calculated during this session. History is cleared when you refresh the page.
+                </p>
+                <div id="historyContent" style="margin-top: 15px;">
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <p style="font-size: 1.1em; margin-bottom: 10px;">No predictions yet</p>
+                        <p style="font-size: 0.9em;">Make a prediction using the form above to see it here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
     </div>
     
     <script>
         // Theme toggle functionality
         const themeToggle = document.getElementById('themeToggle');
-        const themeLabel = document.getElementById('themeLabel');
         const htmlElement = document.documentElement;
         
-        // Load saved theme or default to dark
-        const currentTheme = localStorage.getItem('theme') || 'dark';
-        if (currentTheme === 'light') {
-            htmlElement.setAttribute('data-theme', 'light');
-            themeLabel.textContent = 'Light';
-            themeToggle.querySelector('.theme-toggle-icon').textContent = '☀️';
+        // Theme configuration
+        const themes = ['dark', 'light', 'colorblind'];
+        const themeIcons = { 'dark': '🌙', 'light': '☀️', 'colorblind': '👁️' };
+        const themeLabels = { 'dark': 'Dark', 'light': 'Light', 'colorblind': 'Colorblind' };
+        
+        const themeButtons = {
+            'dark': document.getElementById('themeBtnDark'),
+            'light': document.getElementById('themeBtnLight'),
+            'colorblind': document.getElementById('themeBtnColorblind')
+        };
+        
+        function updateThemeButtons(activeTheme) {
+            Object.keys(themeButtons).forEach(theme => {
+                if (themeButtons[theme]) {
+                    if (theme === activeTheme) {
+                        themeButtons[theme].classList.add('active');
+                    } else {
+                        themeButtons[theme].classList.remove('active');
+                    }
+                }
+            });
         }
         
-        themeToggle.addEventListener('click', () => {
-            const currentTheme = htmlElement.getAttribute('data-theme') || 'dark';
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            htmlElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            themeLabel.textContent = newTheme === 'dark' ? 'Dark' : 'Light';
-            themeToggle.querySelector('.theme-toggle-icon').textContent = newTheme === 'dark' ? '🌙' : '☀️';
-            
-            // Reload statistics if stats tab is currently open to refresh chart colors
-            const statsTab = document.getElementById('statsTab');
-            if (statsTab && statsTab.style.display !== 'none') {
-                loadStatistics();
+        // Load saved theme or default to dark
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        if (themes.includes(savedTheme)) {
+            htmlElement.setAttribute('data-theme', savedTheme);
+            updateThemeButtons(savedTheme);
+        }
+        
+        // Add click handlers to theme buttons
+        Object.keys(themeButtons).forEach(theme => {
+            if (themeButtons[theme]) {
+                themeButtons[theme].addEventListener('click', () => {
+                    htmlElement.setAttribute('data-theme', theme);
+                    localStorage.setItem('theme', theme);
+                    updateThemeButtons(theme);
+                    
+                    // Reload statistics if stats tab is currently open to refresh chart colors
+                    const statsTab = document.getElementById('statsTab');
+                    if (statsTab && statsTab.style.display !== 'none') {
+                        loadStatistics();
+                    }
+                    
+                    // Update history display to refresh colors
+                    if (typeof updateHistoryDisplay === 'function') {
+                        updateHistoryDisplay();
+                    }
+                });
             }
         });
         
@@ -1511,7 +1674,7 @@
             if (!indicator) {
                 indicator = document.createElement('div');
                 indicator.id = 'perk-count-indicator';
-                indicator.style.cssText = 'text-align: center; margin-top: 10px; padding: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; border: 1px solid rgba(139, 0, 0, 0.5);';
+                indicator.style.cssText = 'text-align: center; margin-top: 10px; padding: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; border: 1px solid var(--accent-red-dark);';
                 // Find the Perks section and append indicator
                 const perksSection = document.querySelector('.form-section-title');
                 if (perksSection && perksSection.textContent.includes('Perks')) {
@@ -1526,9 +1689,9 @@
             }
             
             if (totalPerks > maxPerks) {
-                indicator.innerHTML = `<span style="color: #ff6666; font-weight: bold;">⚠ Too many perks! (${totalPerks}/4) - Survivors can only have 4 perks.</span>`;
+                indicator.innerHTML = `<span style="color: var(--color-failure); font-weight: bold;">⚠ Too many perks! (${totalPerks}/4) - Survivors can only have 4 perks.</span>`;
             } else if (totalPerks === maxPerks) {
-                indicator.innerHTML = `<span style="color: #4dff4d; font-weight: bold;">✓ All perk slots filled (${totalPerks}/4)</span>`;
+                indicator.innerHTML = `<span style="color: var(--color-success); font-weight: bold;">✓ All perk slots filled (${totalPerks}/4)</span>`;
             } else {
                 indicator.innerHTML = `<span style="color: #e0e0e0;">Perks: ${totalPerks}/4 (${remaining} remaining)</span>`;
             }
@@ -2267,6 +2430,20 @@
                 window.lastPrediction = data;
                 currentPrediction = data;
                 
+                // Store prediction in history
+                if (!window.predictionHistory) {
+                    window.predictionHistory = [];
+                }
+                const historyEntry = {
+                    timestamp: new Date().toLocaleString(),
+                    escapeChance: escapeChance,
+                    willEscape: willEscape,
+                    modelType: useBp ? 'with_bp' : 'no_bp',
+                    formData: {...formData}
+                };
+                window.predictionHistory.unshift(historyEntry); // Add to beginning
+                updateHistoryDisplay();
+                
                 // Update current config display in compare tab if it's visible
                 updateCurrentConfigDisplay();
                 
@@ -2905,14 +3082,19 @@
                         isPositive = null; // Unknown direction
                     }
                     
+                    const successColor = getCSSVariable('--color-success');
+                    const successLightColor = getCSSVariable('--color-success-light');
+                    const failureColor = getCSSVariable('--color-failure');
+                    const failureLightColor = getCSSVariable('--color-failure-light');
+                    
                     const barWidth = Math.min(magnitude, 100);
-                    const barColor = isPositive === true ? 'linear-gradient(90deg, #4dff4d, #66ff66)' : 
-                                    isPositive === false ? 'linear-gradient(90deg, #ff6666, #ff8888)' : 
+                    const barColor = isPositive === true ? `linear-gradient(90deg, ${successColor}, ${successLightColor})` : 
+                                    isPositive === false ? `linear-gradient(90deg, ${failureColor}, ${failureLightColor})` : 
                                     'linear-gradient(90deg, #4444ff, #6666ff)';
                     const directionText = isPositive === true ? '↑ Increases' : 
                                          isPositive === false ? '↓ Decreases' : '—';
-                    const directionColor = isPositive === true ? '#4dff4d' : 
-                                          isPositive === false ? '#ff6666' : '#888';
+                    const directionColor = isPositive === true ? successColor : 
+                                          isPositive === false ? failureColor : '#888';
                     
                     html += `<tr style="border-bottom: 1px solid rgba(68, 68, 255, 0.2);">
                         <td style="padding: 8px;">${finalDisplayName}</td>
@@ -2934,8 +3116,10 @@
             html += '</table>';
             html += '<div style="margin-top: 15px; padding: 10px; background: rgba(0, 0, 0, 0.3); border-radius: 5px; font-size: 0.9em; color: #aaa;">';
             html += '<strong>Note:</strong> Higher % = larger impact. ';
-            html += '<span style="color: #4dff4d;">↑ Increases</span> = raises escape chance. ';
-            html += '<span style="color: #ff6666;">↓ Decreases</span> = lowers escape chance.';
+            const successColor = getCSSVariable('--color-success');
+            const failureColor = getCSSVariable('--color-failure');
+            html += `<span style="color: ${successColor};">↑ Increases</span> = raises escape chance. `;
+            html += `<span style="color: ${failureColor};">↓ Decreases</span> = lowers escape chance.`;
             html += '</div>';
             html += '</div>';
             importanceContent.innerHTML = html;
@@ -2951,7 +3135,8 @@
             html += `<div style="text-align: center; margin-bottom: 20px;">`;
             html += `<div style="font-size: 2em; font-weight: bold; color: #ff44ff; margin-bottom: 10px;">${data.optimized_escape_chance}%</div>`;
             if (data.current_escape_chance && data.improvement) {
-                html += `<div style="font-size: 1.2em;">Improvement: <span style="color: #4dff4d;">+${data.improvement}%</span> (from ${data.current_escape_chance}%)</div>`;
+                const successColor = getCSSVariable('--color-success');
+                html += `<div style="font-size: 1.2em;">Improvement: <span style="color: ${successColor};">+${data.improvement}%</span> (from ${data.current_escape_chance}%)</div>`;
             }
             html += `</div>`;
             
@@ -3086,14 +3271,14 @@
                             // If no current value selected, just show the recommended value
                             html += `<li style="padding: 5px 0; border-bottom: 1px solid rgba(255, 68, 255, 0.2);">
                                 <strong>${label}:</strong> 
-                                <span style="color: #4dff4d;">${displayOpt}</span>
+                                <span style="color: var(--color-success);">${displayOpt}</span>
                             </li>`;
                         } else {
                             // Show current → optimized
                             html += `<li style="padding: 5px 0; border-bottom: 1px solid rgba(255, 68, 255, 0.2);">
                                 <strong>${label}:</strong> 
-                                <span style="color: #ff6666;">${displayCurrent}</span> → 
-                                <span style="color: #4dff4d;">${displayOpt}</span>
+                                <span style="color: var(--color-failure);">${displayCurrent}</span> → 
+                                <span style="color: var(--color-success);">${displayOpt}</span>
                             </li>`;
                         }
                     }
@@ -3106,13 +3291,13 @@
                 // Replace the "Recommended Changes" section with the optimal configuration message
                 html = html.replace(/<h4 style="color: #ff44ff; margin-bottom: 10px;">Recommended Changes:<\/h4>[\s\S]*?<\/ul><\/div>/, 
                     `<div style="text-align: center; padding: 20px;">
-                        <div style="color: #4dff4d; font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">✓ You already have the optimal configuration!</div>
+                        <div style="color: var(--color-success); font-size: 1.2em; font-weight: bold; margin-bottom: 10px;">✓ You already have the optimal configuration!</div>
                         <div style="color: #aaa; font-size: 0.9em;">All your current settings are already set to maximize your escape chance.</div>
                     </div>`);
             } else {
                 // Only show the apply button if there are changes
                 html += `</ul></div>`;
-                html += `<button onclick="applyOptimization()" style="margin-top: 15px; width: 100%; padding: 12px; background: linear-gradient(135deg, #4d1a4d 0%, #2d0d2d 100%); color: #fff; border: 2px solid #ff44ff; border-radius: 5px; cursor: pointer; font-weight: bold;">Apply Optimized Values</button>`;
+                html += `<button onclick="applyOptimization()" style="margin-top: 15px; width: 100%; padding: 12px; background: linear-gradient(135deg, var(--accent-red-dark) 0%, var(--accent-red) 100%); color: #fff; border: 2px solid var(--accent-red); border-radius: 5px; cursor: pointer; font-weight: bold;">Apply Optimized Values</button>`;
             }
             
             html += `</div>`;
@@ -3311,12 +3496,97 @@
                 } else if (tabName === 'stats') {
                     document.getElementById('statsTab').style.display = 'block';
                     loadStatistics();
+                } else if (tabName === 'history') {
+                    document.getElementById('historyTab').style.display = 'block';
+                    updateHistoryDisplay();
                 }
             });
         });
         
         // Store current prediction result for comparison
         let currentPrediction = null;
+        
+        // Initialize prediction history array
+        if (!window.predictionHistory) {
+            window.predictionHistory = [];
+        }
+        
+        // Helper function to convert hex to rgba - defined first for global access
+        function hexToRgba(hex, alpha) {
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+        
+        // Helper function to get CSS variable values
+        function getCSSVariable(varName) {
+            return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+        }
+        
+        // Function to update history display
+        function updateHistoryDisplay() {
+            const historyContent = document.getElementById('historyContent');
+            if (!historyContent) return;
+            
+            if (!window.predictionHistory || window.predictionHistory.length === 0) {
+                historyContent.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <p style="font-size: 1.1em; margin-bottom: 10px;">No predictions yet</p>
+                        <p style="font-size: 0.9em;">Make a prediction using the form above to see it here.</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div style="display: grid; gap: 15px;">';
+            window.predictionHistory.forEach((entry, index) => {
+                const outcomeClass = entry.willEscape ? 'result-success' : 'result-failure';
+                const outcomeText = entry.willEscape ? 'ESCAPED' : 'SACRIFICED';
+                const outcomeIcon = entry.willEscape ? '✓' : '✗';
+                
+                // Format key configuration details
+                const configDetails = [];
+                if (entry.formData.item) configDetails.push(`Item: ${entry.formData.item}`);
+                if (entry.formData.exhaustion_perk && entry.formData.exhaustion_perk !== 'None') {
+                    configDetails.push(`Exhaustion: ${entry.formData.exhaustion_perk}`);
+                }
+                if (entry.formData.prestige) configDetails.push(`Prestige: ${entry.formData.prestige}`);
+                if (entry.formData.map_type) configDetails.push(`Map: ${entry.formData.map_type}`);
+                
+                html += `
+                    <div style="background: var(--bg-tertiary); border: 2px solid var(--border-color); border-radius: 8px; padding: 20px; display: flex; align-items: center; gap: 20px; transition: all 0.3s ease;">
+                        <div style="flex-shrink: 0; width: 80px; height: 80px; display: flex; align-items: center; justify-content: center; background: var(--bg-secondary); border-radius: 8px; border: 2px solid var(--border-color);">
+                            <div style="font-size: 2.5em; font-weight: bold; color: ${entry.willEscape ? getCSSVariable('--color-success') : getCSSVariable('--color-failure')};">
+                                ${outcomeIcon}
+                            </div>
+                        </div>
+                        <div style="flex-grow: 1;">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+                                <div>
+                                    <div style="font-size: 1.8em; font-weight: bold; color: ${entry.willEscape ? getCSSVariable('--color-success') : getCSSVariable('--color-failure')}; margin-bottom: 5px;">
+                                        ${entry.escapeChance}% - ${outcomeText}
+                                    </div>
+                                    <div style="font-size: 0.9em; color: var(--text-secondary);">
+                                        ${configDetails.join(' • ')}
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-size: 0.85em; color: var(--text-secondary); margin-bottom: 5px;">
+                                        ${entry.modelType === 'with_bp' ? 'With BP' : 'No BP'}
+                                    </div>
+                                    <div style="font-size: 0.8em; color: var(--text-secondary);">
+                                        ${entry.timestamp}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            historyContent.innerHTML = html;
+        }
         
         // What-if scenarios
         document.querySelectorAll('.whatif-btn').forEach(btn => {
@@ -3342,7 +3612,7 @@
                 
                 if (missingFields.length > 0) {
                     document.getElementById('whatifResults').innerHTML = 
-                        `<div style="color: #ff6666; padding: 10px; background: rgba(255, 0, 0, 0.1); border-radius: 5px;">
+                        `<div style="color: var(--color-failure); padding: 10px; background: rgba(255, 0, 0, 0.1); border-radius: 5px;">
                             <strong>Please fill in all required fields first:</strong><br>
                             ${missingFields.join(', ')}<br><br>
                             Complete the form above and click "Calculate" before using What-If scenarios.
@@ -3362,7 +3632,7 @@
                 const totalPerks = countTotalPerks(formData);
                 if (totalPerks > 4) {
                     document.getElementById('whatifResults').innerHTML = 
-                        `<div style="color: #ff6666; padding: 10px; background: rgba(255, 0, 0, 0.1); border-radius: 5px;">
+                        `<div style="color: var(--color-failure); padding: 10px; background: rgba(255, 0, 0, 0.1); border-radius: 5px;">
                             Invalid: This change would result in ${totalPerks} perks (max 4)
                         </div>`;
                     document.getElementById('whatifResults').style.display = 'block';
@@ -3389,7 +3659,7 @@
                         if (originalChance !== null) {
                             const change = (newChance - originalChance).toFixed(1);
                             const changeSign = change >= 0 ? '+' : '';
-                            const changeColor = change >= 0 ? '#4dff4d' : '#ff6666';
+                            const changeColor = change >= 0 ? getCSSVariable('--color-success') : getCSSVariable('--color-failure');
                             chanceDisplay = `${newChance}% <span style="color: ${changeColor};">(${changeSign}${change}%)</span>`;
                         }
                         
@@ -3398,7 +3668,7 @@
                         if (originalChance !== null) {
                             const change = data.escape_chance - originalChance;
                             const percentChange = originalChance !== 0 ? ((change / originalChance) * 100) : 0;
-                            const changeColor = change > 0 ? '#4dff4d' : change < 0 ? '#ff6666' : '#aaa';
+                            const changeColor = change > 0 ? getCSSVariable('--color-success') : change < 0 ? getCSSVariable('--color-failure') : '#aaa';
                             const changeSign = change > 0 ? '+' : '';
                             changeDisplay = `
                                 <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color);">
@@ -3418,7 +3688,7 @@
                                     `<div style="margin-top: 10px; font-size: 0.9em; color: var(--text-secondary);">
                                         Original: ${originalChance}%
                                     </div>` : ''}
-                                <div style="margin-top: ${originalChance !== null ? '5px' : '10px'}; font-size: 1.5em; color: ${data.will_escape ? '#4dff4d' : '#ff6666'};">
+                                <div style="margin-top: ${originalChance !== null ? '5px' : '10px'}; font-size: 1.5em; color: ${data.will_escape ? getCSSVariable('--color-success') : getCSSVariable('--color-failure')};">
                                     Escape Chance: ${chanceDisplay}
                                 </div>
                                 <div style="margin-top: 5px; color: var(--text-secondary); font-size: 0.9em;">
@@ -3432,7 +3702,7 @@
                     }
                 } catch (error) {
                     document.getElementById('whatifResults').innerHTML = 
-                        `<div style="color: #ff6666; padding: 10px;">Error: ${error.message}</div>`;
+                        `<div style="color: var(--color-failure); padding: 10px;">Error: ${error.message}</div>`;
                     document.getElementById('whatifResults').style.display = 'block';
                 }
             });
@@ -3668,7 +3938,7 @@
             }
             if (prediction) {
                 html += `<div style="margin-top: 15px; padding-top: 15px; border-top: 2px solid var(--border-color);">`;
-                html += `<div style="font-size: 1.5em; color: ${prediction.will_escape ? '#4dff4d' : '#ff6666'}; font-weight: bold; text-align: center;">`;
+                html += `<div style="font-size: 1.5em; color: ${prediction.will_escape ? getCSSVariable('--color-success') : getCSSVariable('--color-failure')}; font-weight: bold; text-align: center;">`;
                 html += `Escape: ${prediction.escape_chance}%</div>`;
                 html += `<div style="text-align: center; margin-top: 5px; font-size: 0.9em; color: var(--text-secondary);">`;
                 html += `${prediction.will_escape ? '✓ Would Escape' : '✗ Would Not Escape'}</div></div>`;
@@ -3685,14 +3955,14 @@
             // Calculate difference: current - compare (shows how current compares to the copied config)
             // Positive = current is better, Negative = current is worse
             const diff = current.escape_chance - compare.escape_chance;
-            const diffColor = diff > 0 ? '#4dff4d' : diff < 0 ? '#ff6666' : '#aaa';
+            const diffColor = diff > 0 ? getCSSVariable('--color-success') : diff < 0 ? getCSSVariable('--color-failure') : '#aaa';
             const diffSign = diff > 0 ? '+' : '';
             
             let html = '<div style="background: var(--bg-tertiary); padding: 20px; border-radius: 5px; border: 2px solid var(--accent-red);">';
             html += '<h3 style="color: var(--accent-red); margin-bottom: 15px;">Comparison Results</h3>';
             html += '<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; text-align: center;">';
-            html += `<div><div style="font-size: 0.9em; color: var(--text-secondary);">Current</div><div style="font-size: 2em; color: ${current.will_escape ? '#4dff4d' : '#ff6666'}; font-weight: bold;">${current.escape_chance}%</div></div>`;
-            html += `<div><div style="font-size: 0.9em; color: var(--text-secondary);">Comparison</div><div style="font-size: 2em; color: ${compare.will_escape ? '#4dff4d' : '#ff6666'}; font-weight: bold;">${compare.escape_chance}%</div></div>`;
+            html += `<div><div style="font-size: 0.9em; color: var(--text-secondary);">Current</div><div style="font-size: 2em; color: ${current.will_escape ? getCSSVariable('--color-success') : getCSSVariable('--color-failure')}; font-weight: bold;">${current.escape_chance}%</div></div>`;
+            html += `<div><div style="font-size: 0.9em; color: var(--text-secondary);">Comparison</div><div style="font-size: 2em; color: ${compare.will_escape ? getCSSVariable('--color-success') : getCSSVariable('--color-failure')}; font-weight: bold;">${compare.escape_chance}%</div></div>`;
             html += `<div><div style="font-size: 0.9em; color: var(--text-secondary);">Difference</div><div style="font-size: 2em; color: ${diffColor}; font-weight: bold;">${diffSign}${diff.toFixed(2)}%</div><div style="font-size: 0.8em; color: var(--text-secondary); margin-top: 5px;">${diff > 0 ? 'Current is better' : diff < 0 ? 'Comparison is better' : 'Same'}</div></div>`;
             html += '</div></div>';
             container.innerHTML = html;
@@ -3741,7 +4011,7 @@
             builds.forEach((build, index) => {
                 html += `<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 15px; border-radius: 5px; border: 2px solid var(--border-color); text-align: left;">`;
                 html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">`;
-                html += `<div style="font-size: 1.5em; font-weight: bold; color: ${build.escape_chance >= 50 ? '#4dff4d' : '#ff6666'};">#${index + 1} - ${build.escape_chance}%</div>`;
+                html += `<div style="font-size: 1.5em; font-weight: bold; color: ${build.escape_chance >= 50 ? getCSSVariable('--color-success') : getCSSVariable('--color-failure')};">#${index + 1} - ${build.escape_chance}%</div>`;
                 html += `<div style="font-size: 0.9em; color: var(--text-secondary);">${build.will_escape ? '✓ Escape' : '✗ No Escape'}</div>`;
                 html += `</div>`;
                 html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; font-size: 0.9em;">`;
@@ -3757,6 +4027,29 @@
             html += '</div>';
             topBuildsContent.innerHTML = html;
             topBuildsResult.style.display = 'block';
+        }
+        
+        // Load summary dashboard stats
+        async function loadSummaryStats() {
+            try {
+                const response = await fetch('/statistics', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    const totalSurvivors = data.total_games;
+                    const totalGames = Math.floor(data.total_games / 4);
+                    document.getElementById('summaryTotalSurvivors').textContent = totalSurvivors.toLocaleString();
+                    document.getElementById('summaryTotalEscapes').textContent = data.total_escapes.toLocaleString();
+                    document.getElementById('summaryEscapeRate').textContent = data.overall_escape_rate.toFixed(1) + '%';
+                    document.getElementById('summaryTotalGames').textContent = totalGames.toLocaleString();
+                }
+            } catch (error) {
+                console.error('Failed to load summary stats:', error);
+                // Don't show error in UI, just log it
+            }
         }
         
         // Statistics functionality
@@ -3777,7 +4070,7 @@
                     throw new Error(data.error || 'Failed to load statistics');
                 }
             } catch (error) {
-                statsContent.innerHTML = `<div style="color: #ff6666; padding: 10px;">Error: ${error.message}</div>`;
+                statsContent.innerHTML = `<div style="color: var(--color-failure); padding: 10px;">Error: ${error.message}</div>`;
             }
         }
         
@@ -3805,7 +4098,7 @@
                 html += `<h3 style="color: var(--accent-red); margin-bottom: 15px;">Overall Statistics</h3>`;
                 html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">`;
                 html += `<div><strong>Total Survivors:</strong><br><span style="font-size: 1.5em; color: var(--accent-red);">${totalSurvivors}</span><br><span style="font-size: 0.8em; color: var(--text-secondary);">(${totalGames} games)</span></div>`;
-                html += `<div><strong>Total Escapes:</strong><br><span style="font-size: 1.5em; color: #4dff4d;">${stats.total_escapes}</span></div>`;
+                html += `<div><strong>Total Escapes:</strong><br><span style="font-size: 1.5em; color: var(--color-success);">${stats.total_escapes}</span></div>`;
                 html += `<div><strong>Overall Escape Rate:</strong><br><span style="font-size: 1.5em; color: var(--accent-red);">${stats.overall_escape_rate.toFixed(1)}%</span></div>`;
                 html += `</div></div>`;
             }
@@ -3851,7 +4144,8 @@
                 sortedFeatures.forEach(([feature, data]) => {
                     if (data.distribution && Object.keys(data.distribution).length > 0) {
                         html += `<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">`;
-                        html += `<strong style="color: var(--accent-red); font-size: 1.1em;">${feature}</strong>`;
+                        const accentColor = getCSSVariable('--accent-red');
+                        html += `<strong style="color: ${accentColor}; font-size: 1.1em;">${feature}</strong>`;
                         html += `<div style="position: relative; height: 300px; margin-top: 15px;"><canvas id="chart-dist-${chartIndex}"></canvas></div>`;
                         html += `</div>`;
                         chartIndex++;
@@ -3900,7 +4194,8 @@
                 sortedEscapeRates.forEach(([feature, rates]) => {
                     if (rates && Object.keys(rates).length > 0) {
                         html += `<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">`;
-                        html += `<strong style="color: var(--accent-red); font-size: 1.1em;">${feature}</strong>`;
+                        const accentColor = getCSSVariable('--accent-red');
+                        html += `<strong style="color: ${accentColor}; font-size: 1.1em;">${feature}</strong>`;
                         html += `<div style="position: relative; height: 300px; margin-top: 15px;"><canvas id="chart-escape-${escapeChartIndex}"></canvas></div>`;
                         html += `</div>`;
                         escapeChartIndex++;
@@ -3917,7 +4212,8 @@
                 // Individual graphs
                 if (stats.bloodpoints_stats.survivor_bp) {
                     html += '<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">';
-                    html += '<strong style="color: var(--accent-red); font-size: 1.1em;">Survivor Match Bloodpoints Distribution</strong>';
+                    const successColorBP = getCSSVariable('--color-success');
+                    html += `<strong style="color: ${successColorBP}; font-size: 1.1em;">Survivor Match Bloodpoints Distribution</strong>`;
                     const survivorStats = stats.bloodpoints_stats.survivor_bp;
                     html += `<div style="margin-top: 10px; color: var(--text-secondary); font-size: 0.9em;">`;
                     html += `Mean: ${survivorStats.mean.toFixed(0)} | Median: ${survivorStats.median.toFixed(0)} | Range: ${survivorStats.min.toFixed(0)} - ${survivorStats.max.toFixed(0)}`;
@@ -3928,7 +4224,8 @@
                 
                 if (stats.bloodpoints_stats.killer_bp) {
                     html += '<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">';
-                    html += '<strong style="color: var(--accent-red); font-size: 1.1em;">Killer Match Bloodpoints Distribution</strong>';
+                    const failureColorBP = getCSSVariable('--color-failure');
+                    html += `<strong style="color: ${failureColorBP}; font-size: 1.1em;">Killer Match Bloodpoints Distribution</strong>`;
                     const killerStats = stats.bloodpoints_stats.killer_bp;
                     html += `<div style="margin-top: 10px; color: var(--text-secondary); font-size: 0.9em;">`;
                     html += `Mean: ${killerStats.mean.toFixed(0)} | Median: ${killerStats.median.toFixed(0)} | Range: ${killerStats.min.toFixed(0)} - ${killerStats.max.toFixed(0)}`;
@@ -3940,7 +4237,8 @@
                 // Comparison graph (overlayed)
                 if (stats.bloodpoints_stats.survivor_bp && stats.bloodpoints_stats.killer_bp) {
                     html += '<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 20px; border-radius: 5px;">';
-                    html += '<strong style="color: var(--accent-red); font-size: 1.1em;">Survivor vs Killer Match Bloodpoints Comparison</strong>';
+                    const accentColorComp = getCSSVariable('--accent-red');
+                    html += `<strong style="color: ${accentColorComp}; font-size: 1.1em;">Survivor vs Killer Match Bloodpoints Comparison</strong>`;
                     html += `<div style="position: relative; height: 300px; margin-top: 15px;"><canvas id="chart-bp-comparison"></canvas></div>`;
                     html += `</div>`;
                 }
@@ -4043,8 +4341,8 @@
                                     datasets: [{
                                         label: 'Count',
                                         data: displayValues,
-                                        backgroundColor: 'rgba(255, 26, 26, 0.6)',
-                                        borderColor: 'rgba(255, 26, 26, 1)',
+                                        backgroundColor: hexToRgba(getCSSVariable('--accent-red'), 0.6),
+                                        borderColor: getCSSVariable('--accent-red'),
                                         borderWidth: 2,
                                         minBarLength: 5
                                     }]
@@ -4216,15 +4514,21 @@
                                 escapeCounts = completeEscapeCounts;
                             }
                             
+                            // Get theme colors for escape rate charts
+                            const successColor = getCSSVariable('--color-success');
+                            const failureColor = getCSSVariable('--color-failure');
+                            
                             // Set data to null for 0 escape rates so bars aren't drawn, but keep labels for tooltips
                             const displayValues = values.map(v => v === 0 ? null : v);
                             const displayColors = values.map((v, i) => {
                                 if (v === 0) return null;
-                                return 'rgba(255, 26, 26, 0.6)';
+                                // Use success color for >=50%, failure color for <50%
+                                return v >= 50 ? hexToRgba(successColor, 0.6) : hexToRgba(failureColor, 0.6);
                             });
                             const displayBorderColors = values.map((v, i) => {
                                 if (v === 0) return null;
-                                return 'rgba(255, 26, 26, 1)';
+                                // Use success color for >=50%, failure color for <50%
+                                return v >= 50 ? successColor : failureColor;
                             });
                             
                             // Calculate nice even percentages for y-axis
@@ -4370,15 +4674,15 @@
                                 datasets: [{
                                     label: 'Count',
                                     data: values,
-                                    backgroundColor: 'rgba(77, 162, 255, 0.2)',
-                                    borderColor: 'rgba(77, 162, 255, 1)',
+                                    backgroundColor: hexToRgba(getCSSVariable('--color-success'), 0.2),
+                                    borderColor: getCSSVariable('--color-success'),
                                     borderWidth: 2,
                                     fill: true,
                                     tension: 0.4,
                                     pointRadius: 3,
                                     pointHoverRadius: 5,
-                                    pointBackgroundColor: 'rgba(77, 162, 255, 1)',
-                                    pointBorderColor: 'rgba(77, 162, 255, 1)'
+                                    pointBackgroundColor: getCSSVariable('--color-success'),
+                                    pointBorderColor: getCSSVariable('--color-success')
                                 }]
                             },
                             options: {
@@ -4463,15 +4767,15 @@
                                 datasets: [{
                                     label: 'Count',
                                     data: values,
-                                    backgroundColor: 'rgba(255, 26, 26, 0.2)',
-                                    borderColor: 'rgba(255, 26, 26, 1)',
+                                    backgroundColor: hexToRgba(getCSSVariable('--color-failure'), 0.2),
+                                    borderColor: getCSSVariable('--color-failure'),
                                     borderWidth: 2,
                                     fill: true,
                                     tension: 0.4,
                                     pointRadius: 3,
                                     pointHoverRadius: 5,
-                                    pointBackgroundColor: 'rgba(255, 26, 26, 1)',
-                                    pointBorderColor: 'rgba(255, 26, 26, 1)'
+                                    pointBackgroundColor: getCSSVariable('--color-failure'),
+                                    pointBorderColor: getCSSVariable('--color-failure')
                                 }]
                             },
                             options: {
@@ -4570,6 +4874,10 @@
                             return killerTotal > 0 ? (gameCount / killerTotal) * 100 : 0;
                         });
                         
+                        // Get theme colors for comparison chart
+                        const successColorComp = getCSSVariable('--color-success');
+                        const failureColorComp = getCSSVariable('--color-failure');
+                        
                         new Chart(ctxComparison, {
                             type: 'line',
                             data: {
@@ -4578,28 +4886,28 @@
                                     {
                                         label: 'Survivor BP',
                                         data: survivorValues,
-                                        backgroundColor: 'rgba(77, 162, 255, 0.2)',
-                                        borderColor: 'rgba(77, 162, 255, 1)',
+                                        backgroundColor: hexToRgba(successColorComp, 0.2),
+                                        borderColor: successColorComp,
                                         borderWidth: 2,
                                         fill: true,
                                         tension: 0.4,
                                         pointRadius: 3,
                                         pointHoverRadius: 5,
-                                        pointBackgroundColor: 'rgba(77, 162, 255, 1)',
-                                        pointBorderColor: 'rgba(77, 162, 255, 1)'
+                                        pointBackgroundColor: successColorComp,
+                                        pointBorderColor: successColorComp
                                     },
                                     {
                                         label: 'Killer BP',
                                         data: killerValues,
-                                        backgroundColor: 'rgba(255, 26, 26, 0.2)',
-                                        borderColor: 'rgba(255, 26, 26, 1)',
+                                        backgroundColor: hexToRgba(failureColorComp, 0.2),
+                                        borderColor: failureColorComp,
                                         borderWidth: 2,
                                         fill: true,
                                         tension: 0.4,
                                         pointRadius: 3,
                                         pointHoverRadius: 5,
-                                        pointBackgroundColor: 'rgba(255, 26, 26, 1)',
-                                        pointBorderColor: 'rgba(255, 26, 26, 1)'
+                                        pointBackgroundColor: failureColorComp,
+                                        pointBorderColor: failureColorComp
                                     }
                                 ]
                             },
@@ -4682,6 +4990,9 @@
         // Actually, the form submit is handled by addEventListener, so we need to modify that
         // For now, we'll set it in a global that gets updated
         window.lastPrediction = null;
+        
+        // Load summary dashboard stats on page load
+        loadSummaryStats();
     </script>
 </body>
 </html>

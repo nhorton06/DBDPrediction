@@ -206,6 +206,47 @@ The app will start on `http://127.0.0.1:5000` (or `http://localhost:5000`).
 - If you see "Model not loaded" errors, make sure you've trained the models first
 - The app looks for models in multiple locations: `MODEL_OUTPUT_DIR` env var, current directory, project root, `models/` directory, `/app/models/`, and `/app/`
 
+### Single Command Run (start.sh)
+
+The `start.sh` script can be run directly after downloading the project (no Docker required). It automatically handles model training and starts the Flask application:
+
+```bash
+# Make script executable (first time only)
+chmod +x start.sh
+
+# Run the application (one command)
+./start.sh
+```
+
+**Prerequisites for local run:**
+- Python 3.8+ installed
+- Dependencies installed: `pip install -r requirements.txt`
+- `DBDData.csv` file in the project root directory
+
+**What `start.sh` does automatically:**
+1. Detects if running locally or in Docker
+2. Checks if `DBDData.csv` exists
+3. Trains models if data has changed (detected via file hash comparison) or if models don't exist
+4. Starts the Flask web server on port 5000
+5. Application is accessible at `http://localhost:5000`
+
+**For Docker:**
+The `start.sh` script also runs automatically when the container starts. To use with Docker:
+
+```bash
+# Build and run (one command)
+docker build -t dbd-predictor:latest . && \
+docker run --rm -p 5000:5000 \
+  -v $(pwd)/DBDData.csv:/app/DBDData.csv:ro \
+  -e FLASK_ENV=production \
+  -e FLASK_APP=app.py \
+  -e TRAINING_CSV=/app/DBDData.csv \
+  -e MODEL_OUTPUT_DIR=/app \
+  dbd-predictor:latest
+```
+
+The script provides a seamless startup experience where all initialization (model training, validation, and server startup) happens automatically without manual intervention, whether running locally or in Docker.
+
 ### Docker
 
 ```bash
@@ -280,7 +321,7 @@ docker-compose up -d
 To update the Docker Hub image with the latest changes (including new training data):
 
 ```bash
-# 1. Update DBDData.csv with your new data (if needed)
+# 1. Update DBDData.csv with new data (if needed)
 
 # 2. Build the image (models train during build with latest data)
 docker build -t h2x0/dbd-predictor:latest .
@@ -539,9 +580,9 @@ To update models with new data when Render pulls from Docker Hub:
 
 ## 7) Links
 
-**GitHub Repo**: https://github.com/nhorton06/DBDPrediction
+**GitHub Repo**: [GitHub Repo](https://github.com/nhorton06/DBDPrediction)
 
-**Public Cloud App**: https://dbd-calculator.onrender.com/ 
+**Public Cloud App**: [Render App](https://dbd-calculator.onrender.com/) 
 *Note: this site may take a few minutes to load after periods of inactivity*
 
 **Credits & Attribution**: See [CREDITS.md](CREDITS.md) for attribution of game assets and third-party resources.
