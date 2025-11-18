@@ -4,13 +4,13 @@
 
 ### Problem
 
-Dead by Daylight (DBD) players, especially ones like myself who have dedicated thousands of hours to the game, want to understand a survivor's chance of escaping a match based on various in-game factors. Currently, I basically just have to rely on intuition and my personal experience to estimate escape probability. I can also sometimes look at a survivor's hour count in-game, but this is not always available as it is entirely up to the player to make this public or not. This project addresses the need for a data-driven prediction tool that helps potentially make more informed decisions during pre-game lobby queue and understand how certain factors (survivor characteristics, map size, items, prestige level) may or may not influence escape rates.
+Dead by Daylight (DBD) players, especially ones like myself who have dedicated thousands of hours to the game, want to understand a survivor's chance of escaping a match based on various in-game factors. Currently, I basically just have to rely on intuition and my personal experience to estimate escape probability. I can also sometimes look at a survivor's hour count in-game, but this is not always available as it is entirely up to the player to make this public or not. This project addresses the need for a data-driven prediction tool that helps potentially make more informed decisions during pre-game lobby queue and understand how certain factors (survivor characteristics, map size, items, prestige level, etc.) may or may not influence escape rates.
 
 **Target Users**: Dead by Daylight players, gaming analysts, and researchers interested in game mechanics analysis
 
 ### Solution
 
-This project is a machine learning web application that predicts a survivor's probability of escaping in Dead by Daylight using a PyTorch neural network. The system accepts inputs such as survivor characteristics, prestige level, items and add-ons, map information, perks (exhaustion, chase, and other perks), and player statistics (bloodpoints), then outputs a probability score between 0-100% indicating the likelihood of escape or sacrifice. The application is delivered as a Flask web app with a user-friendly, categorized interface deployed through Docker, making it accessible to both technical and non-technical users. The model automatically trains on startup using the provided CSV data, ensuring it's always up-to-date with the latest gameplay patterns.
+This project is a machine learning web application that predicts a survivor's probability of escaping in Dead by Daylight using a PyTorch 2-layer neural network. The system takes inputs such as survivor characteristics, prestige level, items and add-ons, map information, perks (exhaustion, chase, and other perks), and player statistics (bloodpoints), then outputs a probability between 0-100%, indicating the likelihood of escape or sacrifice. The application is delivered as a Flask web app with a user-friendly, categorized interface deployed through Docker, and made available on the Render cloud service, making it accessible to both technical and non-technical users. The model automatically trains on startup using the provided CSV data, ensuring it's always up-to-date with the latest gameplay patterns.
 
 ## 2) System Overview
 
@@ -18,6 +18,7 @@ This project is a machine learning web application that predicts a survivor's pr
 
 - **Flask API**: Putting my neural network model into a Flask app for deployment into an html file to be interactive for the user
 - **Containerization**: Docker for consistent deployment and environment management
+- **Cloud Services**: Deployed the entire project to Render to be constantly available (with the exception of startup time after periods of inactivity)
 
 ### Architecture Diagram
 
@@ -29,13 +30,13 @@ The system follows a request-response flow with multiple endpoints:
 3. Features are preprocessed and scaled
 4. PyTorch model performs inference
 5. Result (escape probability) is returned and displayed
-6. Optionally, feature importance is calculated and displayed
+6. Optionally, feature importance is calculated and displayed if option is selected
 
 **Optimization Flow:**
 1. User clicks "Optimize" button with current form values
 2. Flask receives current configuration
 3. Optimization algorithm searches for best variable combinations (respecting 4-perk limit)
-4. Optimal configuration is returned with escape chance improvement
+4. Optimal configuration is returned with escape chance improvement and suggested changes
 5. User can apply optimized values to the form
 
 **Feature Importance Flow:**
@@ -45,15 +46,19 @@ The system follows a request-response flow with multiple endpoints:
 4. Results are displayed showing which features increase/decrease escape chance
 
 **System Flow:**
-1. User inputs game parameters via web interface or API
-2. Flask application receives and validates input (perk count, data types, ranges)
+1. User inputs game parameters via web interface or API (locally)
+2. Flask application receives and validates input (perk count, data types, ranges, etc.)
 3. Features are preprocessed and scaled using saved scaler
-4. PyTorch model performs inference
-5. Optional: Feature importance calculated via gradient analysis
+4. PyTorch model performs prediction
+5. Optional: Feature importance calculated via gradient analysis as explained above
 6. Result is formatted as probability percentage and returned to user
-7. Optional: Optimization endpoint finds best configuration to maximize escape chance
+7. Optional: Optimization endpoint finds best configuration to maximize escape chance as explained above
 
-### Architecture Diagram
+### Image/Screenshot Diagram
+
+![System Architecture Digram](assets/diagram.png)
+
+### Text Diagram
 
 ```
 DBDPrediction/
@@ -88,7 +93,7 @@ DBDPrediction/
 ├── run_local.py          # Local development runner (sets up paths, runs Flask)
 ├── start.sh              # Container start script (trains models, starts app)
 ├── README.md             # Project documentation
-└── CREDITS.md            # Attribution for game assets and external resources
+└── LICENSE               # License and attribution for game assets and external resources
 ```
 
 **Generated Model Files** (created at runtime, not in repo):
@@ -98,7 +103,7 @@ DBDPrediction/
 - `scaler_no_bp.pkl` - Feature scaler (without bloodpoints)
 - `model_info_with_bp.pkl` - Model metadata (with bloodpoints)
 - `model_info_no_bp.pkl` - Model metadata (without bloodpoints)
-- `data_hash.txt` - Hash of training data (for detecting changes)
+- `data_hash.txt` - Hash of training data (for detecting changes in data)
 
 **Model File Locations**:
 - **Local development**: Models are saved to project root (`.`) or `models/` directory
@@ -128,178 +133,45 @@ DBDPrediction/
   - Match Bloodpoints (survivor BP, killer BP)
 - **Input Features** (Without BP model): Same as above, excluding bloodpoint features
 - **Output**: Binary classification probability (escape vs. sacrifice)
-- **Training**: Automatically trains both models on container startup with early stopping (max 100 epochs, patience 5)
+- **Training**: Automatically trains both models on container startup with early stopping (max 100 epochs, patience 5), skips this step if data has not been updated (csv hash matches)
 - **Format**: Saved as `dbd_model_with_bp.pth` / `dbd_model_no_bp.pth` (PyTorch state dict), `scaler_with_bp.pkl` / `scaler_no_bp.pkl` (scikit-learn StandardScaler), `model_info_with_bp.pkl` / `model_info_no_bp.pkl` (architecture metadata)
 - **Size**: Model weights ~few MB each, total artifacts ~20-100 MB
 
 **Services:**
-- **Web Interface**: Flask web server (port 5000) with toggle switch to select between models
-- **Cloud Web Hosting**: Render web app service (Free tier) to host the container online rather than just locally
+- **Web Interface**: Flask web server (port 5000, configurable via `FLASK_PORT` env var) with toggle switch to select between models
+- **Cloud Web Hosting**: Render web app service (Free tier, 512MB RAM) - deployed at https://dbd-calculator.onrender.com/
+- **Container Registry**: Docker Hub (image: `h2x0/dbd-predictor:latest`) for pre-built images with trained models
 - **API Endpoints**:
+  - **GET `/`**: Main web interface (prediction form)
+  - **GET `/dashboard`**: Analytics dashboard page with visualizations and statistics graphs
   - **POST `/predict`**: Main prediction endpoint (includes optional `include_importance` flag for feature influence)
   - **POST `/optimize`**: Optimization endpoint to find best variable configuration (respects 4-perk limit)
   - **POST `/top_builds`**: Returns top N builds with highest escape chances (accepts `model_type` and `count` parameters)
   - **GET `/statistics`**: Returns statistics about the training data including feature distributions and escape rates for displaying graphs
-  - **GET `/health`**: Health check for container monitoring (reports status of both models)
+  - **GET `/health`**: Health check for container monitoring
 - **Features**:
   - Real-time escape probability prediction
-  - Feature importance analysis (gradient-based, shows direction and magnitude)
-  - Configuration optimization (finds best settings to maximize escape chance)
+  - Feature importance analysis 
+  - Configuration optimization
   - Perk validation (enforces 4-perk limit for survivors)
-  - Dual model support (with/without bloodpoints)
+  - Dual model support (with/without bloodpoints), toggle for each on interface near the top
 
 ## 3) How to Run (Local)
 
-### **Important Note**: Setting up the container and running it for the first time can take a pretty large amount of time (upwards of 20 minutes). Please be patient as this project uses machine learning and neural network modules.
+### **Important Note**: First-time setup can take 20+ minutes due to model training. Please be patient.
 
-### Prerequisites
+### Quick Start (Recommended)
 
-- Docker and Docker Compose installed (for Docker method)
-- OR Python 3.8+ installed (for local Python method)
-- `DBDData.csv` file in the project root (will be used for training)
-
-### Local Python Development (Without Docker)
-
-If you want to run the application directly on your machine without Docker:
-
-**1. Install Python Dependencies:**
+**Docker Compose** (easiest method):
 
 ```bash
-# Install required packages
-pip install -r requirements.txt
-```
-
-**2. Train Models (First Time Only):**
-
-Before running the app, you need to train the models. The models will be saved in the project root directory:
-
-```bash
-# Train both models (with and without bloodpoints)
-python src/train_model.py
-
-# This will create:
-# - dbd_model_with_bp.pth
-# - dbd_model_no_bp.pth
-# - scaler_with_bp.pkl
-# - scaler_no_bp.pkl
-# - model_info_with_bp.pkl
-# - model_info_no_bp.pkl
-```
-
-**Note**: Model training can take 2-5 minutes depending on your system. The models are saved to the current directory (project root) by default.
-
-**3. Run the Flask Application:**
-
-Use the provided `run_local.py` script which handles path setup correctly:
-
-```bash
-python run_local.py
-```
-
-The app will start on `http://127.0.0.1:5000` (or `http://localhost:5000`).
-
-**Important Notes for Local Development:**
-
-- Models must be trained before running the app (use `python src/train_model.py`)
-- Models are saved to the project root directory (`.`) by default, or can be saved to `models/` directory if `MODEL_OUTPUT_DIR` is set
-- The `run_local.py` script automatically sets up the correct paths for templates and models
-- If you see "Model not loaded" errors, make sure you've trained the models first
-- The app looks for models in multiple locations: `MODEL_OUTPUT_DIR` env var, current directory, project root, `models/` directory, `/app/models/`, and `/app/`
-
-### Single Command Run (start.sh)
-
-The `start.sh` script can be run directly after downloading the project (no Docker required). It automatically handles model training and starts the Flask application:
-
-```bash
-# Make script executable (first time only)
-chmod +x start.sh
-
-# Run the application (one command)
-./start.sh
-```
-
-**Prerequisites for local run:**
-- Python 3.8+ installed
-- Dependencies installed: `pip install -r requirements.txt`
-- `DBDData.csv` file in the project root directory
-
-**What `start.sh` does automatically:**
-1. Detects if running locally or in Docker
-2. Checks if `DBDData.csv` exists
-3. Trains models if data has changed (detected via file hash comparison) or if models don't exist
-4. Starts the Flask web server on port 5000
-5. Application is accessible at `http://localhost:5000`
-
-**For Docker:**
-The `start.sh` script also runs automatically when the container starts. To use with Docker:
-
-```bash
-# Build and run (one command)
-docker build -t dbd-predictor:latest . && \
-docker run --rm -p 5000:5000 \
-  -v $(pwd)/DBDData.csv:/app/DBDData.csv:ro \
-  -e FLASK_ENV=production \
-  -e FLASK_APP=app.py \
-  -e TRAINING_CSV=/app/DBDData.csv \
-  -e MODEL_OUTPUT_DIR=/app \
-  dbd-predictor:latest
-```
-
-The script provides a seamless startup experience where all initialization (model training, validation, and server startup) happens automatically without manual intervention, whether running locally or in Docker.
-
-### Docker
-
-```bash
-# Build the image
-docker build -t dbd-predictor:latest .
-
-# Run the container (mounts DBDData.csv for training)
-docker run --rm -p 5000:5000 \
-  -v $(pwd)/DBDData.csv:/app/DBDData.csv:ro \
-  -e FLASK_ENV=production \
-  -e FLASK_APP=app.py \
-  -e TRAINING_CSV=/app/DBDData.csv \
-  -e MODEL_OUTPUT_DIR=/app \
-  dbd-predictor:latest
-
-# Health check (in another terminal)
-curl http://localhost:5000/health
-```
-
-### Docker Hub (Pre-built Image)
-
-```bash
-# Pull the pre-built image from Docker Hub
-docker pull h2x0/dbd-predictor:latest
-
-# Run the container
-docker run --rm -p 5000:5000 \
-  -v $(pwd)/DBDData.csv:/app/DBDData.csv:ro \
-  -e FLASK_ENV=production \
-  -e FLASK_APP=app.py \
-  -e TRAINING_CSV=/app/DBDData.csv \
-  -e MODEL_OUTPUT_DIR=/app \
-  h2x0/dbd-predictor:latest
-```
-
-**Note**: The Docker Hub image includes `DBDData.csv` in the image, so the volume mount is optional (useful for overriding with local data).
-
-### Docker Compose (Recommended for Local)
-
-```bash
-# Build and start the container (one command startup)
+# One command to build and start
 docker-compose up -d
 
-# The container will:
-# 1. Automatically train the model on DBDData.csv
-# 2. Start the Flask web server
-# 3. Be accessible at http://localhost:5000
-
-# View logs (including training progress)
+# View logs
 docker-compose logs -f
 
-# Health check
-curl http://localhost:5000/health
+# Access at http://localhost:5000
 
 # Stop the container
 docker-compose down
@@ -310,73 +182,65 @@ docker-compose build
 docker-compose up -d
 ```
 
-**Note**: Models are pre-trained during Docker build and included in the image at `/app/`. When running with Docker Compose, models are saved to the local `./models/` directory (mounted to `/app/models` in the container) to avoid retraining on every restart as this takes resources and time (slowing down the overall process upon launch, especially for web deployment). The container will automatically check if the data file has changed (via hash comparison) and retrain if needed (takes 2-5 minutes if retraining is required). This allows you to update `DBDData.csv` and have the models automatically retrain with the new data. The web interface includes a toggle switch to select between the "With Match Bloodpoints" and "Without Match Bloodpoints" models.
-
-**For Render deployments**: Models are pre-trained in the Docker image, so Render uses them directly without retraining (1-2 minutes). To update models on Render, rebuild and redeploy the Docker image with updated data.
-
-**For Local Python Development**: Models must be trained manually using `python src/train_model.py` before running the app. See the "Local Python Development" section above for details.
-
-### Updating Docker Hub Image
-
-To update the Docker Hub image with the latest changes (including new training data):
+**Local Python** (no Docker required):
 
 ```bash
-# 1. Update DBDData.csv with new data (if needed)
+# Install dependencies
+pip install -r requirements.txt
 
-# 2. Build the image (models train during build with latest data)
-docker build -t h2x0/dbd-predictor:latest .
-
-# 3. Push to Docker Hub
-docker push h2x0/dbd-predictor:latest
+# Run (automatically trains models if needed, then starts server)
+chmod +x start.sh && ./start.sh
 ```
 
-**Note**: 
-- The image is available at `h2x0/dbd-predictor:latest` on Docker Hub
-- Models are automatically trained during the build process with the latest `DBDData.csv`
-- After pushing, if Render is pulling from Docker Hub, you'll need to trigger a redeploy to pull the new image
+### Alternative Methods
+
+**Docker (manual):**
+
+```bash
+# Build
+docker build -t dbd-predictor:latest .
+
+# Run
+docker run --rm -p 5000:5000 \
+  -v $(pwd)/DBDData.csv:/app/DBDData.csv:ro \
+  dbd-predictor:latest
+
+# Health check (in another terminal)
+curl http://localhost:5000/health
+```
+
+**Docker Hub (pre-built image):**
+
+```bash
+docker pull h2x0/dbd-predictor:latest
+docker run --rm -p 5000:5000 h2x0/dbd-predictor:latest
+```
+
+**Prerequisites:**
+- Docker/Docker Compose OR Python 3.8+
+- `DBDData.csv` file in project root (for training)
+
+**Note**: Models are automatically trained on first run. The `start.sh` script and Docker containers handle this automatically. Models are saved to `./models/` directory to avoid retraining on every restart.
 
 ### Cloud Deployment (Render)
 
-The project includes a `render.yaml` configuration file for easy deployment to Render when pulled from Docker hub.
+Deploy using the included `render.yaml` configuration:
 
-#### Pull from Docker Hub (recommended for production)
+1. **Create Web Service in Render dashboard:**
+   - Runtime: Docker
+   - Docker image: `h2x0/dbd-predictor:latest`
+   - Set `SKIP_TRAINING=true` (models are pre-trained in image)
+   - See `render.yaml` for full configuration
 
-**1. Deploy to Render:**
-- In Render dashboard, create a new Web Service
-- Select "Docker" as the runtime
-- Set the Docker image to: `h2x0/dbd-predictor:latest`
-- Set environment variables (see `render.yaml` for reference, especially `SKIP_TRAINING=true` so startups after inactivity don't take as long)
-- Models are pre-trained in the Docker Hub image, so startup is faster for the site itself (~30-60 seconds) rather than retraining every time
-
-**2. Updating Data on Render (Docker Hub):**
-To update models with new data when Render pulls from Docker Hub:
-
-1. **Update the data file locally:**
+2. **Update models with new data:**
    ```bash
-   # Edit DBDData.csv with your new data
-   ```
-
-2. **Rebuild and push the Docker image:**
-   ```bash
-   # Build the image (models train during build)
+   # Rebuild and push updated image
    docker build -t h2x0/dbd-predictor:latest .
-   
-   # Push to Docker Hub
    docker push h2x0/dbd-predictor:latest
+   # Then trigger redeploy in Render dashboard
    ```
 
-3. **Trigger Render to pull the new image:**
-     - Use Render API to trigger redeploy (press "Deploy latest reference" under "Manual Deploy")
-
-**Important Notes for Render Deployment:**
-
-- **Models are pre-trained during Docker build** and included in the image at `/app/`
-- Render deployments use pre-trained models directly (no retraining on startup) for fast startup (~30-60 seconds)
-- The `SKIP_TRAINING=true` environment variable should be set to skip training on Render
-- **To update models with new data**: Rebuild the Docker image with updated `DBDData.csv` and push to Docker Hub, then trigger Render to pull the new image
-- Health check start period is set to 300 seconds (5 minutes) as a safety buffer, but startup is typically much faster
-- The `DBDData.csv` file is included in the Docker image
-- **Local Docker behavior**: When running locally (without `SKIP_TRAINING`), the container will automatically retrain if the data file has changed, allowing for easy development and testing
+**Note**: Models are pre-trained during Docker build for fast startup (~30-60 seconds). The `DBDData.csv` file is included in the Docker image.
 
 ## 4) Design Decisions
 
@@ -385,6 +249,8 @@ To update models with new data when Render pulls from Docker Hub:
 **Docker**: Essential for ensuring consistent deployment across different environments. My container includes all dependencies (PyTorch, Flask, scikit-learn, etc.) and gets rid of the "works on my machine" issues. **Models are pre-trained during Docker build** for fast startup times, and the container automatically checks if the data file has changed at runtime, only retraining when necessary. This provides the best of both worlds: fast startup (30-60 seconds) and automatic model updates when data changes.
 
 **Flask**: The application only needs basic routing and JSON handling, making Flask appropriate for handling this front-end task. The REST API design allows for both web interface and programmatic access. It allows me to create a nice UI and UX for the project that has a coherent theme/scheme while being pretty easily usable.
+
+**Cloud Services**: I wanted to make my project available outside of just locally running it on Docker Desktop. I looked at a few services like AWS and Google, but I found Render to be very straightforward and it directly takes a docker hub file as an input, so it made setup much easier since I already had created and pushed the docker hub image.
 
 ### Tradeoffs
 
@@ -413,7 +279,7 @@ To update models with new data when Render pulls from Docker Hub:
 ### Security/Privacy
 
 **Secrets Management**: 
-- No API keys or sensitive credentials required
+- No API keys or sensitive credentials required, so not really an issue
 - Model files contain no user data (pre-trained weights only)
 - Environment variables used for configuration (FLASK_HOST, FLASK_PORT, FLASK_DEBUG)
 
@@ -426,11 +292,12 @@ To update models with new data when Render pulls from Docker Hub:
 **PII Handling**:
 - No personally identifiable information collected or stored
 - All inputs are game statistics (gender, items, points) - no real names or identifiers
+- Usernames are not inputted into data files. They are present in my personal screenshots of the data, but these are not posted in the data or repository anywhere
 - No user session tracking or logging of predictions
 
 **Data Privacy**:
 - Optionally exclude training data (`DBDData.csv`) from repository via `.gitignore` (not entirely necessary at this moment, so I just kept it)
-- Model/weight files (.pkl) excluded to prevent accidental data leakage
+- Model/weight files (.pkl) excluded to prevent accidental data leakage of models and such (again, not really a huge deal, but it retrains these on run anyway, so no reason to keep them)
 
 ### Operations & Risk Management
 
@@ -440,7 +307,7 @@ To update models with new data when Render pulls from Docker Hub:
    - **Recovery**: Manual container restart or redeployment
 2. **Resource Exhaustion**: Model training on startup consumes significant CPU/memory
    - **Mitigation**: Health check start period set to 300s (5 minutes) to allow training time
-   - **Risk**: On resource-constrained systems (e.g., Render free tier with 512MB RAM), training may fail or timeout
+   - **Risk**: On resource-constrained systems (Render free tier with 512MB RAM), training may fail or timeout, but I check in on the logs every so often just in case
 3. **Data Availability**: Missing or corrupted `DBDData.csv` will cause training to fail
    - **Mitigation**: CSV file included in Docker image; can be overridden via volume mount
 4. **Single Point of Failure**: Single-container deployment has no redundancy
@@ -450,7 +317,7 @@ To update models with new data when Render pulls from Docker Hub:
 
 **Monitoring & Observability**:
 - **Health Checks**: `/health` endpoint reports model loading status for both models
-- **Logging**: Flask development server logs all requests to stdout (captured by Docker) and Render has log files available for monitoring while it's running
+- **Logging**: Flask development server logs all requests and Render has log files available for monitoring while it's running (which I mentioned I personally check occasionally)
 - **Limitations**: 
   - No structured logging (JSON format)
   - No metrics collection (request rates, latency, error rates)
@@ -463,26 +330,13 @@ To update models with new data when Render pulls from Docker Hub:
 - **Limitation**: No horizontal scaling capability (would require load balancer, shared state)
 - **Future**: Could add Redis for session management, gunicorn for multi-worker support
 
-**Resource Footprint**:
-- **Container Image**: ~500 MB - 1 GB (Python 3.11 slim base with dependencies), only 512MB RAM on web service (since that's all we get)
-- **Memory Usage**:
-  - Runtime (inference only): ~500 MB - 1 GB
-  - During training (startup): ~1-2 GB peak (both models training simultaneously)
-  - Model storage: ~20-100 MB for both models and scalers
-- **CPU Usage**:
-  - Inference: Minimal (~5-10 ms per prediction, single-threaded)
-  - Training: High CPU usage during startup (2-5 minutes, both models)
-- **Disk I/O**: Minimal after startup (models loaded into memory)
-- **GPU**: Not currently used (CPU-only PyTorch)
-- **Network**: Minimal bandwidth (small JSON requests/responses)
-
 **Known Limitations**:
 1. Models are pre-trained during Docker build - to update models with new data, rebuild the image and redeploy
 2. No database persistence (stateless predictions only)
-3. Single-threaded Flask server (not production-grade for high traffic)
-4. No authentication/authorization (suitable for local use only)
+3. Single-threaded Flask server (not suited for high traffic)
+4. No authentication/authorization (suitable for local use mainly)
 5. Training data can be provided via volume mount (`DBDData.csv`) or is included in Docker Hub image
-6. **Note**: Local Docker containers will automatically retrain if data changes (when `SKIP_TRAINING` is not set), but Render deployments use pre-trained models for fast startup
+**Note**: Local Docker containers will automatically retrain if data changes (when `SKIP_TRAINING` is not set), but Render deployments use pre-trained models for fast startup
 
 ## 5) Results & Evaluation
 
@@ -505,15 +359,26 @@ To update models with new data when Render pulls from Docker Hub:
 **Inference Speed**:
 - CPU: ~5-10 ms per prediction
 - GPU (if available): ~1-2 ms per prediction
-- Network latency: Minimal (local deployment), and also somewhat minimal for 
+- Network latency: Minimal (local deployment), and also somewhat minimal for this type of project
 
-**Resource Usage**:
+**Resource Footprint**:
+- **Container Image Size**: ~12 GB of storage (Python 3.11 slim base with PyTorch, scikit-learn, and other ML dependencies; includes pre-trained models)
+- **Memory Usage**:
+  - Runtime (inference only): ~500 MB - 1 GB
+  - During training (startup): ~1-2 GB peak (both models training simultaneously)
+  - Model storage: ~20-100 MB for both models and scalers
+- **Note**: Large image size is due to PyTorch and ML library dependencies. Runtime memory usage is much lower (~512MB RAM allocated on Render free tier)
+- **CPU Usage**:
+  - Inference: Minimal (~5-10 ms per prediction, single-threaded)
+  - Training: High CPU usage during startup (2-5 minutes, both models)
+- **Disk I/O**: Minimal after startup (models loaded into memory)
+- **Network**: Minimal bandwidth (small JSON requests/responses)
 - Container startup: 
   - **Render/Production**: ~30-60 seconds (uses pre-trained models from image)
   - **Local Docker**: ~30 seconds if data unchanged, ~2-5 minutes if retraining needed (includes training both models)
 - Training time: ~30-90 seconds per model (varies with early stopping, max 100 epochs)
 - Memory footprint: ~500 MB base + model size (both models loaded in memory)
-- **Note**: Models are pre-trained during Docker build for production deployments. Local Docker containers will automatically retrain if the data file (`DBDData.csv`) has changed, detected via file hash comparison.
+- **Note**: Models are pre-trained during Docker build for production deployments. Local Docker containers will automatically retrain if the data file (`DBDData.csv`) has changed (detected via csv file hash)
 
 ### Validation/Tests
 
@@ -521,18 +386,18 @@ To update models with new data when Render pulls from Docker Hub:
 - Trained model evaluated on test set (20% holdout)
 - Metrics: Accuracy, Precision, Recall, F1-Score
 - Typical accuracy: ~99% on training data
-- Model training includes gradient clipping and NaN handling for stability
+- Model training includes gradient clipping and empty/missing value handling, originally had issues as some values are "None" (items, exhaustion perk), but this is now fixed
 
 **API Testing**:
 - Health check endpoint verified with /health
-- Input validation tested with edge cases (invalid ranges and missing fields are disallowed and will prevent user from progressing, notifying them why)
-- Error handling verified for malformed requests
+- Input validation tested with edge cases (invalid ranges and missing fields aren't allowed and will prevent user from progressing, notifying them why and scrolling to where the issue is)
+- Error handling verified for incorrect requests
 
 **Integration Testing**:
 - Docker container build verified
 - Automatic model training on startup verified
 - End-to-end workflow: form submission → prediction → display
-- Unit tests available in `tests/` directory
+- Unit tests available in `tests` folder
 
 ## 6) What's Next
 
@@ -556,7 +421,8 @@ To update models with new data when Render pulls from Docker Hub:
    - **Pre-trained Models for Production**: Models are trained during Docker build for fast Render startup (~30-60 seconds), while local Docker containers still retrain when data changes since more RAM is available
    - **Map Assistance**: Makes it easier to find map by adding realm and map options/dropdowns which will then autofill the remaining fields (type and area) and moving tooltip to section header instead of next to map area
    - **Build Comparison**: Allow to compare probabilities between two different configurations
-   - **Statistics**: Display graphs using statistics from data
+   - **Statistics**: Display graphs using statistics from data, now displayed on separate dashboard endpoint
+   - **Colorblind/High Contrast Mode**: Added mode to convert reds to orange and greens to blues, accessibility feature
    - Added map type and powerful add-ons features
    - Organized UI into categorized sections with model selection toggle
    - Enhanced interface with icons for better UX
@@ -567,7 +433,7 @@ To update models with new data when Render pulls from Docker Hub:
 
 ### Refactors
 
-   - **Extract Model Definition to Shared Module**: `DBDModel` is currently duplicated in both `app.py` and `train_model.py` - should be in a shared `src/models.py` module
+   - **Extract Model Definition to Shared Module**: `DBDModel` is currently duplicated in both `app.py` and `train_model.py` - could be in a shared `models.py` module
    - **Add Type Hints**: Add type annotations throughout the codebase for better IDE support and type safety
    - **Potentially Split Large or More Complex Functions**: Break down `optimize_escape_chance()` and `train_model()` into smaller, more testable functions
 
@@ -585,4 +451,4 @@ To update models with new data when Render pulls from Docker Hub:
 **Public Cloud App**: [Render App](https://dbd-calculator.onrender.com/) 
 *Note: this site may take a few minutes to load after periods of inactivity*
 
-**Credits & Attribution**: See [CREDITS.md](CREDITS.md) for attribution of game assets and third-party resources.
+**Credits & Attribution**: See [LICENSE](LICENSE) for attribution of game assets and third-party resources.
