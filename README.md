@@ -451,4 +451,6 @@ Deploy using the included `render.yaml` configuration:
 **Public Cloud App**: [Render App](https://dbd-calculator.onrender.com/) 
 *Note: this site may take a few minutes to load after periods of inactivity*
 
+**Extra Credit CI Build**: The Render service has an associated webhook which is now associated within Docker Hub to the project. Whenever the image in Docker Hub is updated, it will trigger the webhook on Render to deploy the newest version.
+
 **Credits & Attribution**: See [LICENSE](LICENSE) for attribution of game assets and third-party resources.
