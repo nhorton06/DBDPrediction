@@ -233,6 +233,7 @@ Deploy using the included `render.yaml` configuration:
    - See `render.yaml` for full configuration
 
 2. **Update models with new data:**
+   
    ```bash
    # Rebuild and push updated image
    docker build -t h2x0/dbd-predictor:latest .

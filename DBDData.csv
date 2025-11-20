@@ -631,11 +631,43 @@ F,No,Yes,100,Medkit,Yes,Sprint Burst,2,No,No,No,No,Indoor,9088,29624,29626,Escap
 F,No,No,30,Flashlight,No,None,0,No,No,No,No,Indoor,9088,26558,29626,Dead
 F,No,No,15,Medkit,Yes,Dead Hard,0,No,No,No,No,Indoor,9088,23146,29626,Dead
 F,No,No,100,None,No,None,0,Yes,No,No,No,Indoor,9088,13762,29626,Dead
-F,Yes,No,22,None,No,None,22,No,No,No,No,Outdoor,9728,13453,19832,Dead
-F,Yes,No,13,Flashlight,No,None,13,No,No,No,No,Outdoor,9728,9922,19832,Dead
-F,Yes,No,100,Medkit,Yes,Sprint Burst,100,No,No,No,No,Outdoor,9728,9803,19832,Dead
-F,Yes,No,0,None,No,None,0,No,No,No,No,Outdoor,9728,9058,19832,Dead
+F,Yes,No,22,None,No,None,0,No,No,No,No,Outdoor,9728,13453,19832,Dead
+F,Yes,No,13,Flashlight,No,None,0,No,No,No,No,Outdoor,9728,9922,19832,Dead
+F,Yes,No,100,Medkit,Yes,Sprint Burst,1,No,No,No,No,Outdoor,9728,9803,19832,Dead
+F,Yes,No,0,None,No,None,1,No,No,No,No,Outdoor,9728,9058,19832,Dead
 F,Yes,No,50,Flashlight,No,Dead Hard,0,Yes,No,No,No,Outdoor,11008,32457,22150,Escape
 F,No,No,30,Medkit,No,Balanced Landing,0,No,No,No,No,Outdoor,11008,25350,22150,Escape
 M,Yes,No,92,Medkit,No,None,0,Yes,No,No,No,Outdoor,11008,25165,22150,Escape
 F,No,No,6,None,No,Lithe,0,No,No,No,No,Outdoor,11008,24678,22150,Escape
+F,No,No,100,Toolbox,Yes,Balanced Landing,0,Yes,Yes,No,No,Outdoor,10496,24885,21168,Dead
+F,Yes,No,22,Medkit,No,None,1,Yes,No,No,No,Outdoor,10496,22589,21168,Escape
+M,No,No,100,Medkit,Yes,Dead Hard,0,Yes,Yes,No,No,Outdoor,10496,20673,21168,Escape
+M,No,No,99,Medkit,Yes,Sprint Burst,0,Yes,Yes,No,No,Outdoor,10496,20289,21168,Escape
+F,No,No,38,Medkit,Yes,Sprint Burst,2,No,No,No,No,Indoor,10000,25195,27118,Dead
+F,No,Yes,9,Medkit,No,Lithe,0,Yes,No,No,No,Indoor,10000,17823,27118,Dead
+M,No,No,45,Medkit,No,Dramaturgy,2,No,No,No,No,Indoor,10000,16110,27118,Dead
+F,Yes,No,6,Flashlight,No,Sprint Burst,2,No,No,No,No,Indoor,10000,8595,27118,Dead
+F,No,No,59,Medkit,Yes,Dead Hard,2,Yes,No,No,No,Outdoor,8704,19221,23055,Dead
+F,Yes,No,14,Toolbox,No,Sprint Burst,0,No,No,No,No,Outdoor,8704,17740,23055,Dead
+F,Yes,No,6,Medkit,No,Sprint Burst,1,No,No,No,No,Outdoor,8704,16708,23055,Dead
+M,Yes,No,2,Fog Vial,No,Sprint Burst,1,No,No,No,No,Outdoor,8704,12513,23055,Dead
+F,Yes,No,100,Medkit,Yes,Dead Hard,2,No,No,No,No,Outdoor,11264,26192,31235,Escape
+F,Yes,No,17,Medkit,No,None,0,No,No,No,No,Outdoor,11264,25283,31235,Dead
+M,Yes,No,100,Toolbox,No,Lithe,1,No,No,No,No,Outdoor,11264,23689,31235,Dead
+F,No,No,100,Toolbox,No,Balanced Landing,0,No,No,No,No,Outdoor,11264,6074,31235,Dead
+M,Yes,Yes,100,Medkit,Yes,Dead Hard,1,Yes,Yes,No,No,Indoor,7264,26250,33665,Dead
+M,No,No,40,Medkit,Yes,None,1,No,No,No,No,Indoor,7264,22921,33665,Dead
+F,No,No,100,Medkit,Yes,None,0,No,No,No,No,Indoor,7264,22683,33665,Dead
+F,No,No,100,Medkit,No,Sprint Burst,0,No,No,No,No,Indoor,7264,15687,33665,Dead
+M,Yes,No,16,None,No,Dead Hard,2,Yes,No,No,No,Outdoor,10240,28463,31751,Escape
+M,Yes,No,22,None,No,Lithe,3,No,No,No,No,Outdoor,10240,24660,31751,Escape
+F,Yes,No,100,Medkit,No,Sprint Burst,0,No,No,Yes,Yes,Outdoor,10240,23237,31751,Dead
+F,No,No,3,Medkit,Yes,None,0,No,No,No,No,Outdoor,10240,21084,31751,Dead
+F,Yes,No,79,Flashlight,No,None,1,Yes,No,No,No,Outdoor,9728,15496,20507,Dead
+F,Yes,No,9,Flashlight,No,Lithe,1,No,No,No,No,Outdoor,9728,12250,20507,Dead
+M,No,No,6,Medkit,Yes,Dead Hard,1,No,No,No,No,Outdoor,9728,11001,20507,Dead
+F,No,No,4,None,No,Lithe,2,No,No,No,No,Outdoor,9728,9286,20507,Dead
+M,Yes,No,100,Medkit,No,Sprint Burst,0,Yes,No,No,No,Indoor,7264,27410,29233,Escape
+M,Yes,No,26,Flashlight,No,Dead Hard,3,No,No,No,No,Indoor,7264,24309,29233,Escape
+F,Yes,No,100,Toolbox,Yes,Dead Hard,0,Yes,No,No,No,Indoor,7264,22074,29233,Dead
+F,Yes,No,6,Flashlight,No,Dead Hard,1,No,Yes,No,No,Indoor,7264,8491,29233,Dead

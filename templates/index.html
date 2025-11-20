@@ -1396,6 +1396,14 @@
             <div id="topBuildsContent"></div>
         </div>
         
+        <!-- Most Common Builds Section -->
+        <button type="button" class="submit-btn" id="commonBuildsBtn" style="margin-top: 20px; background: linear-gradient(135deg, #4d3a1a 0%, #261a0d 100%);">
+            📊 MOST COMMON BUILDS
+        </button>
+        <div class="result-container" id="commonBuildsResult" style="display: none; background: linear-gradient(135deg, #4d3a1a 0%, #261a0d 100%); border-color: #ffaa44;">
+            <div id="commonBuildsContent"></div>
+        </div>
+        
         <!-- Tab Navigation -->
         <div style="display: flex; gap: 10px; margin-top: 20px; justify-content: center; flex-wrap: wrap;">
             <a href="/dashboard" class="tab-btn" style="text-decoration: none;">📊 Dashboard</a>
@@ -2460,6 +2468,12 @@
             const errorDiv = document.getElementById('error');
             const optimizeResult = document.getElementById('optimizeResult');
             
+            // Toggle: if already visible, hide it
+            if (optimizeResult.style.display === 'block') {
+                optimizeResult.style.display = 'none';
+                return;
+            }
+            
             loadingDiv.style.display = 'block';
             errorDiv.style.display = 'none';
             optimizeResult.style.display = 'none';
@@ -3482,23 +3496,46 @@
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const tabName = btn.dataset.tab;
-                // Update active tab button
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                // Show/hide tab content
-                document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+                if (!tabName) return; // Skip if no tab name (e.g., Dashboard link)
+                
+                let tabElement = null;
                 if (tabName === 'whatif') {
-                    document.getElementById('whatifTab').style.display = 'block';
+                    tabElement = document.getElementById('whatifTab');
                 } else if (tabName === 'compare') {
-                    document.getElementById('compareTab').style.display = 'block';
-                    // Update current config display when opening compare tab
-                    updateCurrentConfigDisplay();
+                    tabElement = document.getElementById('compareTab');
                 } else if (tabName === 'stats') {
-                    document.getElementById('statsTab').style.display = 'block';
-                    loadStatistics();
+                    tabElement = document.getElementById('statsTab');
                 } else if (tabName === 'history') {
-                    document.getElementById('historyTab').style.display = 'block';
-                    updateHistoryDisplay();
+                    tabElement = document.getElementById('historyTab');
+                }
+                
+                if (!tabElement) return;
+                
+                // Toggle: if already visible and active, hide it
+                const isCurrentlyVisible = tabElement.style.display === 'block' && btn.classList.contains('active');
+                
+                if (isCurrentlyVisible) {
+                    // Hide the tab
+                    tabElement.style.display = 'none';
+                    btn.classList.remove('active');
+                } else {
+                    // Show the tab
+                    // Update active tab button
+                    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    // Show/hide tab content
+                    document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+                    tabElement.style.display = 'block';
+                    
+                    // Run tab-specific initialization
+                    if (tabName === 'compare') {
+                        // Update current config display when opening compare tab
+                        updateCurrentConfigDisplay();
+                    } else if (tabName === 'stats') {
+                        loadStatistics();
+                    } else if (tabName === 'history') {
+                        updateHistoryDisplay();
+                    }
                 }
             });
         });
@@ -3977,6 +4014,14 @@
         
         // Top builds functionality
         document.getElementById('topBuildsBtn').addEventListener('click', async () => {
+            const topBuildsResult = document.getElementById('topBuildsResult');
+            
+            // Toggle: if already visible, hide it
+            if (topBuildsResult.style.display === 'block') {
+                topBuildsResult.style.display = 'none';
+                return;
+            }
+            
             loadingDiv.style.display = 'block';
             loadingDiv.textContent = 'FINDING TOP BUILDS...';
             errorDiv.style.display = 'none';
@@ -4028,6 +4073,114 @@
             topBuildsContent.innerHTML = html;
             topBuildsResult.style.display = 'block';
         }
+        
+        // Most common builds functionality
+        document.getElementById('commonBuildsBtn').addEventListener('click', async () => {
+            const commonBuildsResult = document.getElementById('commonBuildsResult');
+            
+            // Toggle: if already visible, hide it
+            if (commonBuildsResult.style.display === 'block') {
+                commonBuildsResult.style.display = 'none';
+                return;
+            }
+            
+            loadingDiv.style.display = 'block';
+            loadingDiv.textContent = 'ANALYZING COMMON BUILDS...';
+            errorDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/common_builds', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                loadingDiv.style.display = 'none';
+                
+                if (response.ok) {
+                    displayCommonBuilds(data.builds);
+                } else {
+                    throw new Error(data.error || 'Failed to get common builds');
+                }
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                errorDiv.textContent = `ERROR: ${error.message}`;
+                errorDiv.style.display = 'block';
+            }
+        });
+        
+        function displayCommonBuilds(builds) {
+            const commonBuildsResult = document.getElementById('commonBuildsResult');
+            const commonBuildsContent = document.getElementById('commonBuildsContent');
+            let html = '<div style="text-align: center;">';
+            html += '<h2 style="color: var(--accent-red); margin-bottom: 20px;">MOST COMMON BUILDS IN DATA</h2>';
+            html += '<p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9em;">Builds sorted by frequency in training data</p>';
+            
+            if (builds.length === 0) {
+                html += '<p style="color: var(--text-secondary); padding: 20px;">No common builds found in the data.</p>';
+            } else {
+                builds.forEach((build, index) => {
+                    html += `<div style="background: var(--bg-tertiary); padding: 15px; margin-bottom: 15px; border-radius: 5px; border: 2px solid var(--border-color); text-align: left;">`;
+                    html += `<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 10px;">`;
+                    html += `<div style="font-size: 1.2em; font-weight: bold; color: var(--accent-red);">#${index + 1} - Used ${build.count} times</div>`;
+                    html += `<div style="display: flex; gap: 15px; align-items: center;">`;
+                    html += `<div style="font-size: 1.1em; font-weight: bold; color: ${build.escape_rate >= 50 ? getCSSVariable('--color-success') : getCSSVariable('--color-failure')};">${build.escape_rate}% Escape Rate</div>`;
+                    html += `<div style="font-size: 0.9em; color: var(--text-secondary);">(${build.escape_count}/${build.count} escaped)</div>`;
+                    html += `</div></div>`;
+                    html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; font-size: 0.9em; margin-top: 10px;">`;
+                    html += `<div><strong>Item:</strong> ${build.config.item || 'None'}</div>`;
+                    html += `<div><strong>Exhaustion:</strong> ${build.config.exhaustion_perk || 'None'}</div>`;
+                    html += `<div><strong>Chase Perks:</strong> ${build.config.chase_perks || 0}</div>`;
+                    html += `<div><strong>DS:</strong> ${build.config.decisive_strike || 'No'}</div>`;
+                    html += `<div><strong>Unbreakable:</strong> ${build.config.unbreakable || 'No'}</div>`;
+                    html += `<div><strong>OTR:</strong> ${build.config.off_the_record || 'No'}</div>`;
+                    html += `<div><strong>Adrenaline:</strong> ${build.config.adrenaline || 'No'}</div>`;
+                    if (build.config.powerful_add_ons) {
+                        html += `<div><strong>Powerful Add-ons:</strong> ${build.config.powerful_add_ons}</div>`;
+                    }
+                    html += `</div>`;
+                    html += `<button onclick="loadCommonBuild(${index})" style="margin-top: 10px; padding: 8px 15px; background: linear-gradient(135deg, var(--accent-red-dark) 0%, var(--accent-red) 100%); color: #fff; border: 2px solid var(--accent-red); border-radius: 5px; cursor: pointer; font-size: 0.85em;">Load This Build</button>`;
+                    html += `</div>`;
+                });
+            }
+            html += '</div>';
+            commonBuildsContent.innerHTML = html;
+            commonBuildsResult.style.display = 'block';
+            
+            // Store builds globally for load function
+            window.commonBuildsData = builds;
+        }
+        
+        // Function to load a common build into the form
+        window.loadCommonBuild = function(index) {
+            const build = window.commonBuildsData[index];
+            if (!build) return;
+            
+            const config = build.config;
+            
+            // Set form values
+            if (config.item) document.getElementById('item').value = config.item;
+            if (config.exhaustion_perk) document.getElementById('exhaustion_perk').value = config.exhaustion_perk;
+            if (config.chase_perks !== undefined) document.getElementById('chase_perks').value = config.chase_perks;
+            if (config.decisive_strike) document.getElementById('decisive_strike').value = config.decisive_strike;
+            if (config.unbreakable) document.getElementById('unbreakable').value = config.unbreakable;
+            if (config.off_the_record) document.getElementById('off_the_record').value = config.off_the_record;
+            if (config.adrenaline) document.getElementById('adrenaline').value = config.adrenaline;
+            if (config.powerful_add_ons) document.getElementById('powerful_add_ons').value = config.powerful_add_ons;
+            
+            // Trigger change events to update perk validation
+            document.getElementById('exhaustion_perk').dispatchEvent(new Event('change'));
+            document.getElementById('chase_perks').dispatchEvent(new Event('change'));
+            
+            // Scroll to top of form
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            
+            // Show a brief message
+            const message = document.createElement('div');
+            message.textContent = 'Build loaded!';
+            message.style.cssText = 'position: fixed; top: 20px; right: 20px; background: var(--accent-red); color: #fff; padding: 15px 20px; border-radius: 5px; z-index: 10000; box-shadow: 0 4px 10px rgba(0,0,0,0.3);';
+            document.body.appendChild(message);
+            setTimeout(() => message.remove(), 2000);
+        };
         
         // Load summary dashboard stats
         async function loadSummaryStats() {

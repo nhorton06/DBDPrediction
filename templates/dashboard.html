@@ -595,8 +595,13 @@
                     chartInstances.length = 0;
                     
                     // Reload dashboard with new theme
-                    setTimeout(() => {
-                        loadDashboard();
+                    setTimeout(async () => {
+                        await loadDashboard();
+                        // Wait a bit longer to ensure all HTML is inserted and charts from loadDashboard are created
+                        setTimeout(() => {
+                            loadMapAreaScatter();
+                            loadMatchOutcomes();
+                        }, 800);
                     }, 150);
                 });
             }
@@ -613,12 +618,15 @@
                 
                 if (response.ok) {
                     displayDashboard(data);
+                    // Return a promise that resolves after a short delay to ensure HTML is inserted
+                    return new Promise(resolve => setTimeout(resolve, 100));
                 } else {
                     throw new Error(data.error || 'Failed to load dashboard data');
                 }
             } catch (error) {
                 document.getElementById('chartsContainer').innerHTML = 
                     `<div style="color: var(--color-failure); padding: 20px; text-align: center;">Error: ${error.message}</div>`;
+                return Promise.resolve();
             }
         }
         
@@ -657,6 +665,38 @@
                 : 'rgba(0, 0, 0, 0.1)';
             
             let html = '<div>';
+            
+            // Match Outcomes section (at the top)
+            html += '<div style="margin-top: 30px; margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-left: 4px solid var(--accent-red); border-radius: 5px;">';
+            html += '<h2 style="color: var(--accent-red); margin: 0; font-size: 1.8em; font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Match Outcomes</h2>';
+            html += '<p style="color: var(--text-secondary); margin-top: 10px; font-size: 0.9em;">Distribution of match results (grouped by batches of 4 survivors)</p>';
+            html += '</div>';
+            html += '<div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px; margin-bottom: 20px;">';
+            html += `<div id="matchOutcomesNote" style="margin-bottom: 10px; color: var(--text-secondary); font-size: 0.9em;"></div>`;
+            html += `<div style="position: relative; height: 400px;"><canvas id="chart-match-outcomes"></canvas></div>`;
+            html += `</div>`;
+            
+            // Additional match outcomes breakdowns (under same section)
+            html += '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px; margin-top: 20px;">';
+            html += '<div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px;">';
+            html += `<strong style="color: var(--accent-red); font-size: 1.1em;">By Number of Medkits</strong>`;
+            html += `<div style="position: relative; height: 400px; margin-top: 15px;"><canvas id="chart-match-medkits"></canvas></div>`;
+            html += `</div>`;
+            html += '<div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px;">';
+            html += `<strong style="color: var(--accent-red); font-size: 1.1em;">By Number of Flashlights</strong>`;
+            html += `<div style="position: relative; height: 400px; margin-top: 15px;"><canvas id="chart-match-flashlights"></canvas></div>`;
+            html += `</div>`;
+            html += '</div>';
+            html += '<div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 20px;">';
+            html += '<div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px;">';
+            html += `<strong style="color: var(--accent-red); font-size: 1.1em;">By Number of Survivors with Second Chance Perks</strong>`;
+            html += `<div style="position: relative; height: 400px; margin-top: 15px;"><canvas id="chart-match-second-chance"></canvas></div>`;
+            html += `</div>`;
+            html += '<div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px;">';
+            html += `<strong style="color: var(--accent-red); font-size: 1.1em;">By Total Chase Perks</strong>`;
+            html += `<div style="position: relative; height: 400px; margin-top: 15px;"><canvas id="chart-match-chase-perks"></canvas></div>`;
+            html += `</div>`;
+            html += '</div>';
             
             // Feature distributions with charts
             if (stats.feature_stats) {
@@ -760,6 +800,14 @@
                     }
                 });
                 html += '</div>';
+                
+                // Add Map Area scatter plot at the end (full width)
+                html += '<div style="background: var(--bg-tertiary); padding: 15px; border-radius: 5px; margin-top: 20px;">';
+                const accentColorMap = getComputedStyle(document.documentElement).getPropertyValue('--accent-red').trim();
+                html += `<strong style="color: ${accentColorMap}; font-size: 1.1em;">Map Area (Scatter Plot)</strong>`;
+                html += `<div id="mapAreaScatterNote" style="margin-top: 10px; color: var(--text-secondary); font-size: 0.9em;"></div>`;
+                html += `<div style="position: relative; height: 400px; margin-top: 15px;"><canvas id="scatter-map-area"></canvas></div>`;
+                html += `</div>`;
             }
             
             // Bloodpoints distribution graphs
@@ -1581,8 +1629,529 @@
             }
         }
         
+        // Load scatter plot data for Map Area only
+        async function loadMapAreaScatter() {
+            try {
+                const response = await fetch('/scatter_data', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.scatter_plots && data.scatter_plots.map_area_vs_escape) {
+                    displayMapAreaScatter(data.scatter_plots.map_area_vs_escape);
+                }
+            } catch (error) {
+                console.error('Failed to load map area scatter plot:', error);
+            }
+        }
+        
+        function displayMapAreaScatter(plotData) {
+            const ctx = document.getElementById('scatter-map-area');
+            if (!ctx) return;
+            
+            const root = getComputedStyle(document.documentElement);
+            const textPrimary = root.getPropertyValue('--text-primary').trim();
+            const bgSecondary = root.getPropertyValue('--bg-secondary').trim();
+            const borderColor = root.getPropertyValue('--border-color').trim();
+            const accentRed = root.getPropertyValue('--accent-red').trim();
+            const successColor = root.getPropertyValue('--color-success').trim();
+            const failureColor = root.getPropertyValue('--color-failure').trim();
+            
+            const gridColor = root.getPropertyValue('--bg-primary').trim() === '#0a0a0a' 
+                ? 'rgba(255, 255, 255, 0.1)' 
+                : 'rgba(0, 0, 0, 0.1)';
+            
+            const points = plotData.data.map(d => ({ x: d.x, y: d.y }));
+            const pointColors = plotData.data.map(d => d.y >= 50 ? successColor : failureColor);
+            const pointSizes = plotData.data.map(d => Math.max(3, Math.min(10, Math.sqrt(d.count) * 0.5)));
+            
+            // Calculate trend line (simple linear regression)
+            const n = points.length;
+            const sumX = points.reduce((sum, p) => sum + p.x, 0);
+            const sumY = points.reduce((sum, p) => sum + p.y, 0);
+            const sumXY = points.reduce((sum, p) => sum + p.x * p.y, 0);
+            const sumX2 = points.reduce((sum, p) => sum + p.x * p.x, 0);
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            
+            // Determine direction
+            const direction = slope > 0 ? 'positive' : slope < 0 ? 'negative' : 'neutral';
+            const directionText = slope > 0 ? 'increasing' : slope < 0 ? 'decreasing' : 'flat';
+            
+            // Update note with trend information
+            const noteElement = document.getElementById('mapAreaScatterNote');
+            if (noteElement) {
+                const equation = `y = ${slope.toFixed(4)}x + ${intercept.toFixed(2)}`;
+                noteElement.textContent = `Trend: ${directionText} (${equation})`;
+            }
+            
+            const minX = Math.min(...points.map(p => p.x));
+            const maxX = Math.max(...points.map(p => p.x));
+            const trendLine = [
+                { x: minX, y: slope * minX + intercept },
+                { x: maxX, y: slope * maxX + intercept }
+            ];
+            
+            const scatterChart = new Chart(ctx, {
+                        type: 'scatter',
+                        data: {
+                            datasets: [
+                                {
+                                    label: 'Escape Rate',
+                                    data: points,
+                                    backgroundColor: pointColors.map(c => hexToRgba(c, 0.6)),
+                                    borderColor: pointColors,
+                                    borderWidth: 2,
+                                    pointRadius: pointSizes,
+                                    pointHoverRadius: pointSizes.map(s => s + 2)
+                                },
+                                {
+                                    label: 'Trend Line',
+                                    data: trendLine,
+                                    type: 'line',
+                                    borderColor: accentRed,
+                                    borderWidth: 2,
+                                    borderDash: [5, 5],
+                                    pointRadius: 0,
+                                    fill: false,
+                                    tension: 0
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'point',
+                                intersect: false
+                            },
+                            plugins: {
+                                legend: {
+                                    display: true,
+                                    position: 'top',
+                                    labels: {
+                                        color: textPrimary,
+                                        usePointStyle: true,
+                                        filter: function(item) {
+                                            return item.datasetIndex === 0;
+                                        }
+                                    }
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        title: function(context) {
+                                            const index = context[0].dataIndex;
+                                            const dataPoint = plotData.data[index];
+                                            return `${plotData.x_label}: ${dataPoint.x.toLocaleString()}`;
+                                        },
+                                        label: function(context) {
+                                            const index = context.dataIndex;
+                                            const dataPoint = plotData.data[index];
+                                            return [
+                                                `${plotData.y_label}: ${dataPoint.y}%`,
+                                                `Sample Size: ${dataPoint.count}`,
+                                                `Escapes: ${dataPoint.escapes}`
+                                            ];
+                                        }
+                                    },
+                                    titleColor: textPrimary,
+                                    bodyColor: textPrimary,
+                                    backgroundColor: bgSecondary,
+                                    borderColor: borderColor,
+                                    borderWidth: 1
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: plotData.x_label,
+                                        color: textPrimary,
+                                        font: { size: 14, weight: 'bold' }
+                                    },
+                                    ticks: {
+                                        color: textPrimary,
+                                        callback: function(value) {
+                                            return value.toLocaleString();
+                                        }
+                                    },
+                                    grid: {
+                                        color: gridColor
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: plotData.y_label,
+                                        color: textPrimary,
+                                        font: { size: 14, weight: 'bold' }
+                                    },
+                                    ticks: {
+                                        color: textPrimary,
+                                        callback: function(value) {
+                                            return value.toFixed(0) + '%';
+                                        }
+                                    },
+                                    grid: {
+                                        color: gridColor
+                                    },
+                                    min: 0,
+                                    max: 50
+                                }
+                            }
+                        }
+                    });
+                    chartInstances.push(scatterChart);
+        }
+        
         // Load dashboard on page load
         loadDashboard();
+        
+        // Load map area scatter plot after dashboard loads
+        setTimeout(() => {
+            loadMapAreaScatter();
+            loadMatchOutcomes();
+        }, 500);
+        
+        // Load match outcomes data
+        async function loadMatchOutcomes() {
+            try {
+                // Wait for canvas elements to exist (they're created in displayDashboard)
+                let retries = 0;
+                const maxRetries = 10;
+                while (retries < maxRetries && !document.getElementById('chart-match-outcomes')) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    retries++;
+                }
+                
+                const response = await fetch('/match_outcomes', {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.outcomes) {
+                    displayMatchOutcomes(data);
+                }
+            } catch (error) {
+                console.error('Failed to load match outcomes:', error);
+            }
+        }
+        
+        function displayMatchOutcomes(data) {
+            const ctx = document.getElementById('chart-match-outcomes');
+            if (!ctx) return;
+            
+            // Destroy existing chart if it exists
+            const existingChart = Chart.getChart(ctx);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+            
+            const root = getComputedStyle(document.documentElement);
+            const textPrimary = root.getPropertyValue('--text-primary').trim();
+            const bgSecondary = root.getPropertyValue('--bg-secondary').trim();
+            const borderColor = root.getPropertyValue('--border-color').trim();
+            const accentRed = root.getPropertyValue('--accent-red').trim();
+            const successColor = root.getPropertyValue('--color-success').trim();
+            const failureColor = root.getPropertyValue('--color-failure').trim();
+            
+            const gridColor = root.getPropertyValue('--bg-primary').trim() === '#0a0a0a' 
+                ? 'rgba(255, 255, 255, 0.1)' 
+                : 'rgba(0, 0, 0, 0.1)';
+            
+            // Update note
+            const noteElement = document.getElementById('matchOutcomesNote');
+            if (noteElement) {
+                noteElement.textContent = `Total Matches: ${data.total_matches.toLocaleString()}`;
+            }
+            
+            // Prepare data for stacked bar chart
+            const labels = data.outcomes.map(o => o.label);
+            const indoorData = data.outcomes.map(o => o.indoor);
+            const outdoorData = data.outcomes.map(o => o.outdoor);
+            const percentages = data.outcomes.map(o => o.percentage);
+            
+            // Color scheme for map types
+            // Indoor maps - use a darker/more muted color
+            const indoorColor = '#6b46c1';  // Purple-ish for indoor
+            const outdoorColor = '#059669';  // Green for outdoor
+            
+            const matchOutcomesChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Indoor Maps',
+                            data: indoorData,
+                            backgroundColor: hexToRgba(indoorColor, 0.7),
+                            borderColor: indoorColor,
+                            borderWidth: 2
+                        },
+                        {
+                            label: 'Outdoor Maps',
+                            data: outdoorData,
+                            backgroundColor: hexToRgba(outdoorColor, 0.7),
+                            borderColor: outdoorColor,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: textPrimary,
+                                usePointStyle: true,
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const datasetLabel = context.dataset.label;
+                                    const value = context.parsed.y;
+                                    const total = indoorData[index] + outdoorData[index];
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return [
+                                        `${datasetLabel}: ${value.toLocaleString()}`,
+                                        `Percentage of ${labels[index]}: ${percentage}%`
+                                    ];
+                                },
+                                footer: function(tooltipItems) {
+                                    const index = tooltipItems[0].dataIndex;
+                                    const total = indoorData[index] + outdoorData[index];
+                                    const totalPercentage = percentages[index];
+                                    return [
+                                        `Total: ${total.toLocaleString()} matches (${totalPercentage}% of all matches)`
+                                    ];
+                                }
+                            },
+                            titleColor: textPrimary,
+                            bodyColor: textPrimary,
+                            backgroundColor: bgSecondary,
+                            borderColor: borderColor,
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: 'Match Outcome',
+                                color: textPrimary,
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            ticks: {
+                                color: textPrimary,
+                                maxRotation: 0,
+                                minRotation: 0
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Matches',
+                                color: textPrimary,
+                                font: { size: 14, weight: 'bold' }
+                            },
+                            ticks: {
+                                color: textPrimary,
+                                stepSize: 1
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        }
+                    }
+                }
+            });
+            chartInstances.push(matchOutcomesChart);
+            
+            // Load additional breakdown charts if data is available
+            if (data.medkit_breakdown) {
+                displayBreakdownChart('chart-match-medkits', data.medkit_breakdown, 'Number of Medkits', [0, 1, 2, 3, 4]);
+            }
+            if (data.flashlight_breakdown) {
+                displayBreakdownChart('chart-match-flashlights', data.flashlight_breakdown, 'Number of Flashlights', [0, 1, 2, 3, 4]);
+            }
+            if (data.second_chance_breakdown) {
+                displayBreakdownChart('chart-match-second-chance', data.second_chance_breakdown, 'Number of Survivors with Second Chance Perks', [0, 1, 2, 3, 4]);
+            }
+            if (data.chase_perks_breakdown) {
+                displayBreakdownChart('chart-match-chase-perks', data.chase_perks_breakdown, 'Total Chase Perks', ['0-3', '4-6', '7-9', '10-12']);
+            }
+        }
+        
+        function displayBreakdownChart(canvasId, breakdownData, xAxisTitle, valueRange) {
+            const ctx = document.getElementById(canvasId);
+            if (!ctx) return;
+            
+            // Destroy existing chart if it exists
+            const existingChart = Chart.getChart(ctx);
+            if (existingChart) {
+                existingChart.destroy();
+            }
+            
+            const root = getComputedStyle(document.documentElement);
+            const textPrimary = root.getPropertyValue('--text-primary').trim();
+            const bgSecondary = root.getPropertyValue('--bg-secondary').trim();
+            const borderColor = root.getPropertyValue('--border-color').trim();
+            const accentRed = root.getPropertyValue('--accent-red').trim();
+            
+            const gridColor = root.getPropertyValue('--bg-primary').trim() === '#0a0a0a' 
+                ? 'rgba(255, 255, 255, 0.1)' 
+                : 'rgba(0, 0, 0, 0.1)';
+            
+            const labels = breakdownData.map(o => o.label);
+            
+            // Create datasets for each value in the range with distinct, muted colors
+            const distinctColors = [
+                '#6b9bd1',  // Muted Blue
+                '#7fb069',  // Muted Green
+                '#d4a574',  // Muted Orange/Tan
+                '#b88fc7',  // Muted Purple
+                '#7fb3b3',  // Muted Teal
+                '#c97a7a',  // Muted Red
+                '#c4b87a',  // Muted Yellow/Olive
+                '#9b8fb8',  // Muted Lavender
+                '#7a9b9b',  // Muted Blue-Gray
+                '#b89b7a',  // Muted Brown
+                '#8fa8b8',  // Muted Slate
+                '#7a9b7a',  // Muted Sage
+                '#9b7a7a'   // Muted Rose
+            ];
+            
+            const datasets = valueRange.map((value, index) => {
+                const valueStr = String(value);
+                const data = breakdownData.map(outcome => outcome.data[valueStr] || 0);
+                
+                // Use distinct colors from the palette
+                const colorIndex = index % distinctColors.length;
+                const color = distinctColors[colorIndex];
+                
+                return {
+                    label: `${value}`,
+                    data: data,
+                    backgroundColor: hexToRgba(color, 0.7),
+                    borderColor: color,
+                    borderWidth: 2
+                };
+            }).filter(dataset => {
+                // Only include datasets that have at least one non-zero value
+                return dataset.data.some(val => val > 0);
+            });
+            
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: textPrimary,
+                                usePointStyle: true,
+                                padding: 10,
+                                font: { size: 11 }
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    // Only show non-zero values
+                                    if (context.parsed.y === 0 || context.parsed.y === null) {
+                                        return null;
+                                    }
+                                    const datasetLabel = context.dataset.label;
+                                    const value = context.parsed.y;
+                                    const index = context.dataIndex;
+                                    const total = breakdownData[index].data ? 
+                                        Object.values(breakdownData[index].data).reduce((sum, v) => sum + (v || 0), 0) : 0;
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${datasetLabel}: ${value.toLocaleString()} (${percentage}%)`;
+                                },
+                                filter: function(tooltipItem) {
+                                    // Only show tooltips for non-zero values
+                                    return tooltipItem.parsed.y > 0;
+                                }
+                            },
+                            titleColor: textPrimary,
+                            bodyColor: textPrimary,
+                            backgroundColor: bgSecondary,
+                            borderColor: borderColor,
+                            borderWidth: 1
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: 'Match Outcome',
+                                color: textPrimary,
+                                font: { size: 12, weight: 'bold' }
+                            },
+                            ticks: {
+                                color: textPrimary,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                font: { size: 10 }
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Matches',
+                                color: textPrimary,
+                                font: { size: 12, weight: 'bold' }
+                            },
+                            ticks: {
+                                color: textPrimary,
+                                stepSize: 1,
+                                font: { size: 10 }
+                            },
+                            grid: {
+                                color: gridColor
+                            }
+                        }
+                    }
+                }
+            });
+            chartInstances.push(chart);
+        }
     </script>
 </body>
 </html>

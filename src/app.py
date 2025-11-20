@@ -981,6 +981,112 @@ def top_builds():
         import traceback
         return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 400
 
+@app.route('/common_builds', methods=['GET'])
+def common_builds():
+    """Get most common builds from training data"""
+    try:
+        import pandas as pd
+        csv_path = 'DBDData.csv'
+        
+        # Try multiple locations
+        possible_paths = [
+            csv_path,
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), csv_path),
+            f'/app/{csv_path}'
+        ]
+        
+        dataset = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                dataset = pd.read_csv(path, keep_default_na=False, na_values=[])
+                break
+        
+        if dataset is None:
+            return jsonify({'error': 'Training data not found'}), 404
+        
+        # Handle empty strings for Item and Exhaustion Perk
+        if 'Item' in dataset.columns:
+            dataset['Item'] = dataset['Item'].replace('', 'None').fillna('None')
+        if 'Exhaustion Perk' in dataset.columns:
+            dataset['Exhaustion Perk'] = dataset['Exhaustion Perk'].replace('', 'None').fillna('None')
+        
+        # Define build characteristics to group by
+        build_cols = [
+            'Item', 'Exhaustion Perk', 'Chase Perks',
+            'Decisive Strike', 'Unbreakable', 'Off the Record', 'Adrenaline',
+            'Powerful Add-ons'
+        ]
+        
+        # Filter to only columns that exist
+        build_cols = [col for col in build_cols if col in dataset.columns]
+        
+        # Group by build characteristics
+        build_groups = dataset.groupby(build_cols, dropna=False)
+        
+        # Calculate stats for each build
+        common_builds = []
+        for build_key, group in build_groups:
+            if len(group) < 2:  # Skip builds with only 1 occurrence
+                continue
+            
+            # Create build config dict
+            build_config = {}
+            for i, col in enumerate(build_cols):
+                build_config[col] = build_key[i] if isinstance(build_key, tuple) else build_key
+            
+            # Calculate escape rate
+            escape_count = len(group[group['Result'] == 'Escape'])
+            escape_rate = (escape_count / len(group)) * 100
+            
+            # Map column names to form field names
+            form_config = {}
+            form_config['item'] = str(build_config.get('Item', 'None'))
+            form_config['exhaustion_perk'] = str(build_config.get('Exhaustion Perk', 'None'))
+            
+            # Handle Chase Perks (could be numeric or string)
+            chase_val = build_config.get('Chase Perks', 0)
+            if pd.notna(chase_val):
+                try:
+                    form_config['chase_perks'] = int(float(chase_val))
+                except (ValueError, TypeError):
+                    form_config['chase_perks'] = 0
+            else:
+                form_config['chase_perks'] = 0
+            
+            # Handle binary columns (could be Yes/No strings or 0/1 integers)
+            def normalize_binary(value):
+                if pd.isna(value):
+                    return 'No'
+                if isinstance(value, (int, float)):
+                    return 'Yes' if value == 1 else 'No'
+                if isinstance(value, str):
+                    return 'Yes' if value.lower() in ['yes', '1', 'true'] else 'No'
+                return 'No'
+            
+            form_config['decisive_strike'] = normalize_binary(build_config.get('Decisive Strike', 0))
+            form_config['unbreakable'] = normalize_binary(build_config.get('Unbreakable', 0))
+            form_config['off_the_record'] = normalize_binary(build_config.get('Off the Record', 0))
+            form_config['adrenaline'] = normalize_binary(build_config.get('Adrenaline', 0))
+            form_config['powerful_add_ons'] = normalize_binary(build_config.get('Powerful Add-ons', 0))
+            
+            common_builds.append({
+                'config': form_config,
+                'count': len(group),
+                'escape_count': int(escape_count),
+                'escape_rate': round(escape_rate, 2),
+                'will_escape': escape_rate >= 50
+            })
+        
+        # Sort by count (most common first)
+        common_builds.sort(key=lambda x: x['count'], reverse=True)
+        
+        # Limit to top 20
+        return jsonify({'builds': common_builds[:20]})
+    
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 400
+
 @app.route('/statistics', methods=['GET'])
 def statistics():
     """Get statistics about the training data"""
@@ -1137,6 +1243,382 @@ def statistics():
             'total_escapes': total_escapes_count,
             'overall_escape_rate': (total_escapes_count / total_games_count) * 100 if total_games_count > 0 else 0,
             'bloodpoints_stats': bloodpoints_stats
+        })
+    
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 400
+
+@app.route('/scatter_data', methods=['GET'])
+def scatter_data():
+    """Get scatter plot data for numeric features vs escape rate"""
+    try:
+        import pandas as pd
+        csv_path = 'DBDData.csv'
+        
+        # Try multiple locations
+        possible_paths = [
+            csv_path,
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), csv_path),
+            f'/app/{csv_path}'
+        ]
+        
+        dataset = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                dataset = pd.read_csv(path, keep_default_na=False, na_values=[])
+                break
+        
+        if dataset is None:
+            return jsonify({'error': 'Training data not found'}), 404
+        
+        scatter_data = {}
+        
+        # 1. Prestige vs Escape Rate
+        if 'Prestige' in dataset.columns:
+            # Convert prestige to numeric
+            dataset['Prestige_Numeric'] = pd.to_numeric(dataset['Prestige'], errors='coerce')
+            # Group by prestige value and calculate escape rate
+            prestige_groups = dataset.groupby('Prestige_Numeric', dropna=True)
+            
+            prestige_data = []
+            for prestige_val, group in prestige_groups:
+                if pd.notna(prestige_val) and len(group) > 0:
+                    escape_count = len(group[group['Result'] == 'Escape'])
+                    escape_rate = (escape_count / len(group)) * 100
+                    prestige_data.append({
+                        'x': float(prestige_val),
+                        'y': round(escape_rate, 2),
+                        'count': len(group),
+                        'escapes': escape_count
+                    })
+            
+            # Sort by prestige value
+            prestige_data.sort(key=lambda d: d['x'])
+            scatter_data['prestige_vs_escape'] = {
+                'data': prestige_data,
+                'x_label': 'Prestige',
+                'y_label': 'Escape Rate (%)',
+                'title': 'Escape Rate by Prestige Level'
+            }
+        
+        # 2. Map Area vs Escape Rate
+        if 'Map Area' in dataset.columns:
+            # Convert map area to numeric
+            dataset['Map_Area_Numeric'] = pd.to_numeric(dataset['Map Area'], errors='coerce')
+            
+            # Valid map areas from the game (from the codebase)
+            valid_map_areas_list = [
+                6272,  # Treatment Theatre (indoor)
+                7264,  # Midwich Elementary School (indoor)
+                8448,  # Coal Tower, Lampkin Lane, Ormond Lake Mine
+                8704,  # Dead Dawg Saloon, Fallen Refuge, The Temple of Purgation, Toba Landing
+                8832,  # The Underground Complex (indoor)
+                8960,  # Rancid Abattoir, Father Campbell's Chapel
+                9088,  # The Game (indoor)
+                9216,  # Badham Preschool I, Wreckers' Yard, The Shattered Square
+                9472,  # Eyrie of Crows
+                9728,  # Fractured Cowshed, The Thompson House, Nostromo Wreckage, Mount Ormond Resort
+                9984,  # Groaning Storehouse, Family Residence, Sanctum of Wrath, Freddy Fazbear's Pizza
+                10000, # Raccoon City Police Station East Wing (indoor)
+                10240, # Ironworks of Misery, Suffocation Pit, Rotten Fields, Greenville Square
+                10304, # The Pale Rose
+                10496, # Wretched Shop, Garden of Joy
+                10752, # Torment Creek, Grim Pantry
+                11000, # Raccoon City Police Station West Wing (indoor)
+                11008, # Disturbed Ward
+                11264  # Shelter Woods, Azarov's Resting Place
+            ]
+            
+            # Filter to only valid map areas
+            valid_map_areas = dataset[dataset['Map_Area_Numeric'].isin(valid_map_areas_list)].copy()
+            
+            if len(valid_map_areas) > 0:
+                # Group by actual map area (not binned) and calculate escape rate
+                area_groups = valid_map_areas.groupby('Map_Area_Numeric', dropna=True)
+                
+                area_data = []
+                for area_val, group in area_groups:
+                    if pd.notna(area_val) and len(group) > 0:
+                        escape_count = len(group[group['Result'] == 'Escape'])
+                        escape_rate = (escape_count / len(group)) * 100
+                        area_data.append({
+                            'x': float(area_val),
+                            'y': round(escape_rate, 2),
+                            'count': len(group),
+                            'escapes': escape_count
+                        })
+                
+                # Sort by map area
+                area_data.sort(key=lambda d: d['x'])
+                scatter_data['map_area_vs_escape'] = {
+                    'data': area_data,
+                    'x_label': 'Map Area',
+                    'y_label': 'Escape Rate (%)',
+                    'title': 'Escape Rate by Map Area'
+                }
+        
+        return jsonify({'scatter_plots': scatter_data})
+    
+    except Exception as e:
+        import traceback
+        return jsonify({'error': str(e), 'traceback': traceback.format_exc()}), 400
+
+@app.route('/match_outcomes', methods=['GET'])
+def match_outcomes():
+    """Get match outcome distribution (grouping survivors into matches of 4)"""
+    try:
+        import pandas as pd
+        csv_path = 'DBDData.csv'
+        
+        # Try multiple locations
+        possible_paths = [
+            csv_path,
+            os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), csv_path),
+            f'/app/{csv_path}'
+        ]
+        
+        dataset = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                dataset = pd.read_csv(path, keep_default_na=False, na_values=[])
+                break
+        
+        if dataset is None:
+            return jsonify({'error': 'Training data not found'}), 404
+        
+        # Process data in order, grouping every 4 rows as a match
+        # Track outcomes by map type
+        match_outcomes = {
+            '0k': {'Indoor': 0, 'Outdoor': 0},  # All 4 escaped (0 killed)
+            '1k': {'Indoor': 0, 'Outdoor': 0},  # 3 escaped, 1 killed
+            '2k': {'Indoor': 0, 'Outdoor': 0},  # 2 escaped, 2 killed
+            '3k': {'Indoor': 0, 'Outdoor': 0},  # 1 escaped, 3 killed
+            '4k': {'Indoor': 0, 'Outdoor': 0}   # All 4 killed
+        }
+        
+        total_matches = 0
+        
+        # Process in batches of 4
+        for i in range(0, len(dataset), 4):
+            match_group = dataset.iloc[i:i+4]
+            
+            if len(match_group) < 4:
+                # Incomplete match (less than 4 survivors) - skip
+                continue
+            
+            # Get map type (should be same for all 4 survivors in a match)
+            map_type = None
+            if 'Map Type' in match_group.columns:
+                # Get the most common map type in this match (should all be the same)
+                map_type_values = match_group['Map Type'].dropna().unique()
+                if len(map_type_values) > 0:
+                    map_type = str(map_type_values[0])
+            
+            # Default to 'Outdoor' if not found
+            if map_type not in ['Indoor', 'Outdoor']:
+                map_type = 'Outdoor'
+            
+            # Count escapes in this match
+            escape_count = len(match_group[match_group['Result'] == 'Escape'])
+            kill_count = 4 - escape_count
+            
+            # Map to outcome category
+            outcome_key = None
+            if kill_count == 0:
+                outcome_key = '0k'
+            elif kill_count == 1:
+                outcome_key = '1k'
+            elif kill_count == 2:
+                outcome_key = '2k'
+            elif kill_count == 3:
+                outcome_key = '3k'
+            else:  # kill_count == 4
+                outcome_key = '4k'
+            
+            match_outcomes[outcome_key][map_type] += 1
+            total_matches += 1
+        
+        # Prepare data for stacked bar chart
+        outcome_data = []
+        labels = ['0k (All Escaped)', '1k (3 Escaped)', '2k (2 Escaped)', '3k (1 Escaped)', '4k (All Killed)']
+        keys = ['0k', '1k', '2k', '3k', '4k']
+        
+        for label, key in zip(labels, keys):
+            indoor_count = match_outcomes[key]['Indoor']
+            outdoor_count = match_outcomes[key]['Outdoor']
+            total_count = indoor_count + outdoor_count
+            total_percentage = (total_count / total_matches * 100) if total_matches > 0 else 0
+            
+            outcome_data.append({
+                'label': label,
+                'indoor': indoor_count,
+                'outdoor': outdoor_count,
+                'total': total_count,
+                'percentage': round(total_percentage, 2)
+            })
+        
+        # Calculate additional breakdowns
+        # 1. By number of medkits
+        medkit_outcomes = {
+            '0k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '1k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '2k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '3k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '4k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0}
+        }
+        
+        # 2. By number of flashlights
+        flashlight_outcomes = {
+            '0k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '1k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '2k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '3k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '4k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0}
+        }
+        
+        # 3. By number of survivors with second chance perks
+        second_chance_outcomes = {
+            '0k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '1k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '2k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '3k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0},
+            '4k': {'0': 0, '1': 0, '2': 0, '3': 0, '4': 0}
+        }
+        
+        # 4. By total chase perks (sum across all 4 survivors) - using ranges
+        chase_perks_outcomes = {
+            '0k': {'0-3': 0, '4-6': 0, '7-9': 0, '10-12': 0},
+            '1k': {'0-3': 0, '4-6': 0, '7-9': 0, '10-12': 0},
+            '2k': {'0-3': 0, '4-6': 0, '7-9': 0, '10-12': 0},
+            '3k': {'0-3': 0, '4-6': 0, '7-9': 0, '10-12': 0},
+            '4k': {'0-3': 0, '4-6': 0, '7-9': 0, '10-12': 0}
+        }
+        
+        # Process matches again for additional breakdowns
+        for i in range(0, len(dataset), 4):
+            match_group = dataset.iloc[i:i+4]
+            
+            if len(match_group) < 4:
+                continue
+            
+            # Count escapes in this match
+            escape_count = len(match_group[match_group['Result'] == 'Escape'])
+            kill_count = 4 - escape_count
+            
+            # Determine outcome key
+            outcome_key = None
+            if kill_count == 0:
+                outcome_key = '0k'
+            elif kill_count == 1:
+                outcome_key = '1k'
+            elif kill_count == 2:
+                outcome_key = '2k'
+            elif kill_count == 3:
+                outcome_key = '3k'
+            else:
+                outcome_key = '4k'
+            
+            # Count medkits
+            if 'Item' in match_group.columns:
+                medkit_count = len(match_group[match_group['Item'] == 'Medkit'])
+                medkit_count_str = str(min(medkit_count, 4))  # Cap at 4
+                if medkit_count_str in medkit_outcomes[outcome_key]:
+                    medkit_outcomes[outcome_key][medkit_count_str] += 1
+            
+            # Count flashlights
+            if 'Item' in match_group.columns:
+                flashlight_count = len(match_group[match_group['Item'] == 'Flashlight'])
+                flashlight_count_str = str(min(flashlight_count, 4))  # Cap at 4
+                if flashlight_count_str in flashlight_outcomes[outcome_key]:
+                    flashlight_outcomes[outcome_key][flashlight_count_str] += 1
+            
+            # Count survivors with second chance perks (how many unique survivors have at least one)
+            second_chance_count = 0
+            second_chance_perks = ['Decisive Strike', 'Unbreakable', 'Off the Record', 'Adrenaline']
+            for idx in match_group.index:
+                has_second_chance = False
+                for perk in second_chance_perks:
+                    if perk in match_group.columns:
+                        val = match_group.loc[idx, perk]
+                        if val == 1 or str(val).lower() in ['yes', 'true', '1']:
+                            has_second_chance = True
+                            break
+                if has_second_chance:
+                    second_chance_count += 1
+            
+            second_chance_count_str = str(min(second_chance_count, 4))
+            if second_chance_count_str in second_chance_outcomes[outcome_key]:
+                second_chance_outcomes[outcome_key][second_chance_count_str] += 1
+            
+            # Sum total chase perks across all 4 survivors and assign to range
+            total_chase_perks = 0
+            if 'Chase Perks' in match_group.columns:
+                for idx in match_group.index:
+                    chase_val = match_group.loc[idx, 'Chase Perks']
+                    try:
+                        total_chase_perks += int(float(chase_val))
+                    except (ValueError, TypeError):
+                        pass
+            
+            # Assign to range
+            if total_chase_perks <= 3:
+                chase_perks_range = '0-3'
+            elif total_chase_perks <= 6:
+                chase_perks_range = '4-6'
+            elif total_chase_perks <= 9:
+                chase_perks_range = '7-9'
+            else:  # 10-12
+                chase_perks_range = '10-12'
+            
+            if chase_perks_range in chase_perks_outcomes[outcome_key]:
+                chase_perks_outcomes[outcome_key][chase_perks_range] += 1
+        
+        # Prepare data for additional graphs
+        def prepare_breakdown_data(outcomes_dict, max_value=4):
+            breakdown_data = []
+            labels = ['0k (All Escaped)', '1k (3 Escaped)', '2k (2 Escaped)', '3k (1 Escaped)', '4k (All Killed)']
+            keys = ['0k', '1k', '2k', '3k', '4k']
+            
+            for label, key in zip(labels, keys):
+                row_data = {}
+                for i in range(max_value + 1):
+                    count = outcomes_dict[key].get(str(i), 0)
+                    row_data[str(i)] = count
+                breakdown_data.append({
+                    'label': label,
+                    'data': row_data
+                })
+            return breakdown_data
+        
+        medkit_data = prepare_breakdown_data(medkit_outcomes, 4)
+        flashlight_data = prepare_breakdown_data(flashlight_outcomes, 4)
+        second_chance_data = prepare_breakdown_data(second_chance_outcomes, 4)
+        
+        # Prepare chase perks data with ranges
+        chase_perks_data = []
+        labels = ['0k (All Escaped)', '1k (3 Escaped)', '2k (2 Escaped)', '3k (1 Escaped)', '4k (All Killed)']
+        keys = ['0k', '1k', '2k', '3k', '4k']
+        ranges = ['0-3', '4-6', '7-9', '10-12']
+        
+        for label, key in zip(labels, keys):
+            row_data = {}
+            for range_val in ranges:
+                count = chase_perks_outcomes[key].get(range_val, 0)
+                row_data[range_val] = count
+            chase_perks_data.append({
+                'label': label,
+                'data': row_data
+            })
+        
+        return jsonify({
+            'outcomes': outcome_data,
+            'total_matches': total_matches,
+            'raw_counts': match_outcomes,
+            'medkit_breakdown': medkit_data,
+            'flashlight_breakdown': flashlight_data,
+            'second_chance_breakdown': second_chance_data,
+            'chase_perks_breakdown': chase_perks_data
         })
     
     except Exception as e:
