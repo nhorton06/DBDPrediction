@@ -234,12 +234,12 @@ Deploy using the included `render.yaml` configuration:
 
 2. **Update models with new data:**
    
-   ```bash
-   # Rebuild and push updated image
-   docker build -t h2x0/dbd-predictor:latest .
-   docker push h2x0/dbd-predictor:latest
-   # Then trigger redeploy in Render dashboard
-   ```
+```bash
+# Rebuild and push updated image
+docker build -t h2x0/dbd-predictor:latest .
+docker push h2x0/dbd-predictor:latest
+# Then trigger redeploy in Render dashboard
+```
 
 **Note**: Models are pre-trained during Docker build for fast startup (~30-60 seconds). The `DBDData.csv` file is included in the Docker image.
 
