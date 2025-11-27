@@ -12,8 +12,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     FLASK_HOST=0.0.0.0 \
     FLASK_DEBUG=False
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies and upgrade all packages (including tar) to latest versions
+RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     gcc \
     dos2unix \
     && rm -rf /var/lib/apt/lists/*
