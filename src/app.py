@@ -171,6 +171,13 @@ def health():
         'model_no_bp_loaded': no_bp_loaded
     }), status_code
 
+@app.route('/hybridaction/<path:action>', methods=['GET', 'POST'])
+def handle_tracking_requests(action):
+    """Handle tracking/analytics requests to suppress 404 errors in logs"""
+    # Return 204 No Content for tracking requests (browser extensions, analytics, etc.)
+    # This acknowledges the request without processing it
+    return '', 204
+
 def count_total_perks(data):
     """Count total number of perks selected (must be <= 4)"""
     exhaustion_perk = data.get('exhaustion_perk', 'None')
